@@ -8,6 +8,7 @@
 
 user:file_search_path(swish_web,      web(.)).
 user:file_search_path(swish_examples, cpacks(swish/examples)).
+user:file_search_path(swish_examples, examples).
 
 :- use_module(applications(swish)).
 
