@@ -28,12 +28,11 @@
 */
 
 :- module(swish_authenticate,
-	  [ swish_add_user/3		% +User, +Passwd, +Fields
+	  [
 	  ]).
 :- use_module(library(pengines), []).
 :- use_module(library(lists)).
-:- use_module(library(crypt)).
-:- use_module(library(http/http_authenticate)).
+:- use_module(user(user_db)).
 
 /** <module> SWISH login management
 
@@ -52,41 +51,8 @@ the server will challenge the user.  The   logged  in  user is available
 through pengine_user/1.
 */
 
-:- dynamic
-	password_file_cache/1.
+pengines:authentication_hook(_Request, _Application, User) :-
+	logged_on(User).
 
-password_file(File) :-
-	password_file_cache(File), !.
-password_file(File) :-
-	absolute_file_name(swish(passwd), File, [access(read)]),
-	asserta(password_file_cache(File)).
-
-pengines:authentication_hook(Request, _Application, User) :-
-	password_file(File),
-	http_authenticate(basic(File), Request, [User|_Fields]), !.
-pengines:authentication_hook(_Request, _Application, _User) :-
-	throw(http_reply(authorise(basic('SWISH user')))).
-
-%%	swish_add_user(+User, +Passwd, +Fields) is det.
-%
-%	Add a new user to the SWISH password file.
-
-swish_add_user(User, Passwd, Fields) :-
-	phrase("$1$", E, _),		% use Unix MD5 hashes
-	crypt(Passwd, E),
-	string_codes(Hash, E),
-
-	Entry = passwd(User, Hash, Fields),
-
-	absolute_file_name(swish(passwd), File,
-			   [access(write)]),
-	(   exists_file(File)
-	->  http_read_passwd_file(File, Data)
-	;   Data = []
-	),
-	(   selectchk(passwd(User, _, _), Data, Entry, NewData)
-	->  true
-	;   append(Data, [Entry], NewData)
-	),
-	http_write_passwd_file(File, NewData).
-
+pengines:not_sandboxed(User, _Application) :-
+	catch(check_permission(User, admin(swish)), _, fail).
