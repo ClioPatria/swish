@@ -3,3 +3,4 @@
 /** <module> Add Prolog interaction to ClioPatria
 */
 
+:- use_module(applications(swish)).
