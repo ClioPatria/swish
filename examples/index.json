@@ -1,0 +1,5 @@
+// list of examples, represented as a JSON list
+
+[
+{ "file":"rdf_queries.pl",		  "title":"General queries" },
+]
