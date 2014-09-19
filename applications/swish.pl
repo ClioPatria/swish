@@ -35,6 +35,7 @@
 :- use_module(library(http/http_server_files)).
 :- use_module(library(http/http_json)).
 
+:- use_module(library(swish/config)).
 :- use_module(library(swish/page), []).
 :- use_module(library(swish/storage)).
 :- use_module(library(swish/examples)).
@@ -52,33 +53,8 @@ http:location(swish, root(swish), []).
 		 *	   HTTP HANDLERS	*
 		 *******************************/
 
-:- http_handler(swish('config.json'), http_server_config, []).
+:- http_handler(swish(.), serve_files_in_directory(swish_web), [prefix]).
 :- http_handler(swish(.), http_redirect(moved_temporary, swish('index.html')), []).
-
-
-		 /*******************************
-		 *	       CONFIG		*
-		 *******************************/
-
-%%	http_server_config(+Request)
-%
-%	Emit a configuration object  to   the  client.  Currently serves
-%	http.locations, which is an object that maps HTTP handler ids to
-%	HTTP locations for each declared handler   that  has an explicit
-%	id(ID) property.
-
-http_server_config(_Request) :-
-	http_locations(JSON),
-	reply_json(json{ http: json{ locations:JSON
-				   }
-		       }).
-
-http_locations(JSON) :-
-	findall(ID-Path,
-		( http_current_handler(Path, _:_, Options),
-		  memberchk(id(ID), Options)
-		), Pairs),
-	dict_pairs(JSON, json, Pairs).
 
 
                  /*******************************
