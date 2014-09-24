@@ -1,14 +1,13 @@
 # Create a ClioPatria SWISH package from the SWISH distribution.
 
-DIRS=lib/swish
+DIRS=lib/swish web/icons web/help
 LIBS=lib/swish/storage.pl lib/swish/page.pl lib/swish/help.pl \
      lib/swish/examples.pl lib/swish/config.pl
 JS=web/js/swish-min.js web/js/require.js
 CSS=web/css/swish-min.css
 ICONS=web/icons/owl_25_years.png \
       web/icons/dead.png web/icons/error.png web/icons/running.gif
-HELP=web/help/about.html web/help/caveats.html web/help/help.html \
-     web/help/query.html web/help/runner.html
+HELP=$(addprefix web/help/, $(shell cd src/web/help && echo *.html))
 
 all:	$(DIRS) $(LIBS) $(JS) $(CSS) $(ICONS) $(HELP)
 
@@ -19,15 +18,7 @@ web/icons:
 web/help:
 	mkdir -p $@
 
-lib/swish/config.pl: src/lib/config.pl lib/swish
-	rsync -u $< $@
-lib/swish/storage.pl: src/lib/storage.pl lib/swish
-	rsync -u $< $@
-lib/swish/page.pl: src/lib/page.pl lib/swish
-	rsync -u $< $@
-lib/swish/help.pl: src/lib/help.pl lib/swish
-	rsync -u $< $@
-lib/swish/examples.pl: src/lib/examples.pl lib/swish
+lib/swish/%: src/lib/%
 	rsync -u $< $@
 
 web/js/swish-min.js: src/web/js/swish-min.js
@@ -38,22 +29,8 @@ web/js/require.js: src/web/bower_components/requirejs/require.js
 web/css/swish-min.css: src/web/css/swish-min.css
 	rsync -u $< $@
 
-web/icons/dead.png: src/web/icons/dead.png web/icons
-	rsync -u $< $@
-web/icons/error.png: src/web/icons/error.png web/icons
-	rsync -u $< $@
-web/icons/running.gif: src/web/icons/running.gif web/icons
-	rsync -u $< $@
-web/icons/owl_25_years.png: src/web/icons/owl_25_years.png web/icons
+web/icons/%: src/web/icons/%
 	rsync -u $< $@
 
-web/help/about.html: src/web/help/about.html web/help
-	rsync -u $< $@
-web/help/caveats.html: src/web/help/caveats.html web/help
-	rsync -u $< $@
-web/help/help.html: src/web/help/help.html web/help
-	rsync -u $< $@
-web/help/query.html: src/web/help/query.html web/help
-	rsync -u $< $@
-web/help/runner.html: src/web/help/runner.html web/help
+web/help/%: src/web/help/%
 	rsync -u $< $@
