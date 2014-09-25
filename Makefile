@@ -3,8 +3,8 @@
 DIRS=lib/swish web/icons web/help
 LIBS=lib/swish/storage.pl lib/swish/page.pl lib/swish/help.pl \
      lib/swish/examples.pl lib/swish/config.pl
-JS=web/js/swish-min.js web/js/require.js
-CSS=web/css/swish-min.css
+JS=web/js/swish-min.js web/js/swish-min.js.gz web/js/require.js
+CSS=web/css/swish-min.css web/css/swish-min.css.gz
 ICONS=web/icons/owl_25_years.png \
       web/icons/dead.png web/icons/error.png web/icons/running.gif
 HELP=$(addprefix web/help/, $(shell cd src/web/help && echo *.html))
@@ -23,10 +23,12 @@ lib/swish/%: src/lib/%
 
 web/js/swish-min.js: src/web/js/swish-min.js
 	rsync -u $< $@
+web/js/swish-min.js.gz: src/web/js/swish-min.js.gz
+	rsync -u $< $@
 web/js/require.js: src/web/bower_components/requirejs/require.js
 	rsync -u $< $@
 
-web/css/swish-min.css: src/web/css/swish-min.css
+web/css/%: src/web/css/%
 	rsync -u $< $@
 
 web/icons/%: src/web/icons/%
