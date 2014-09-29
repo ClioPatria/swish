@@ -10,9 +10,9 @@
 % =examples=  directory  in  the  main   directory  holding  application
 % specific examples.
 
-user:file_search_path(swish_web,      web(.)).
-user:file_search_path(swish_examples, cpacks(swish/examples)).
-user:file_search_path(swish_examples, examples).
+user:file_search_path(swish_web, web(.)).
+user:file_search_path(example,   cpacks(swish/examples)).
+user:file_search_path(example,	 examples).
 
 % Load swish.  You need this.
 :- use_module(applications(swish)).
