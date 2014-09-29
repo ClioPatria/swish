@@ -31,25 +31,30 @@
 :- use_module(library(http/http_dispatch)).
 :- use_module(library(http/http_parameters)).
 :- use_module(library(http/http_json)).
-:- use_module(library(http/http_path)).
 :- use_module(library(http/http_client)).
+:- use_module(library(http/http_wrapper)).
+:- use_module(library(http/mimetype)).
 :- use_module(library(settings)).
 :- use_module(library(random)).
 :- use_module(library(apply)).
 :- use_module(library(option)).
-:- use_module(library(filesex)).
+:- use_module(library(debug)).
+
+:- use_module(page).
+:- use_module(gitty).
+:- use_module(config).
 
 /** <module> Store files on behalve of web clients
 
+The file store needs to deal  with   versioning  and  meta-data. This is
+achieved using gitty.pl, a git-like content-base  store that lacks git's
+notion of a _tree_. I.e., all files   are considered individual and have
+their own version.
 */
 
 :- setting(directory, atom, storage, 'The directory for storing files.').
 
-user:file_search_path(web_storage, Dir) :-
-	setting(directory, Dir).
-user:file_search_path(web_storage, swish_examples(.)).
-
-:- http_handler(root(storage), web_storage, [ id(web_storage), prefix ]).
+:- http_handler(swish(p), web_storage, [ id(web_storage), prefix ]).
 
 %%	web_storage(+Request) is det.
 %
@@ -63,50 +68,103 @@ web_storage(Request) :-
 	storage(Method, Request).
 
 storage(get, Request) :-
-	request_file(Request, _File, Path),
-	http_reply_file(Path, [unsafe(true)], Request).
+	http_parameters(Request,
+			[ format(Format, [ oneof([swish,raw]),
+					   default(swish),
+					   description('How to render')
+					 ])
+			]),
+	storage_get(Request, Format).
 storage(post, Request) :-
 	http_parameters(Request,
 			[   data(Data, [default(''),
 					description('Data to be saved')]),
 			    type(Type, [default(pl)])
 			]),
+	authentity(Request, Authentity),
 	setting(directory, Dir),
 	make_directory_path(Dir),
-	random_filename(Base),
-	file_name_extension(Base, Type, File),
-	directory_file_path(Dir, File, RelPath),
+	(   repeat,
+	    random_filename(Base),
+	    file_name_extension(Base, Type, File),
+	    catch(gitty_create(Dir, File, Data, Authentity, Commit),
+		  error(gitty(file_exists(File)),_),
+		  fail)
+	->  true
+	),
+	debug(storage, 'Created: ~p', [Commit]),
 	storage_url(File, URL),
-	save_string(RelPath, Data),
 	reply_json_dict(json{url:URL, file:File}).
 storage(put, Request) :-
 	http_read_data(Request, Form, []),
 	option(data(Data), Form, ''),
-	request_file(Request, File, Path),
+	authentity(Request, Meta),
+	setting(directory, Dir),
+	request_file(Request, Dir, File),
 	storage_url(File, URL),
-	save_string(Path, Data),
+	gitty_update(Dir, File, Data, Meta, Commit),
+	debug(storage, 'Updated: ~p', [Commit]),
 	reply_json_dict(json{url:URL, file:File}).
 storage(delete, Request) :-
-	request_file(Request, _File, Path),
-	delete_file(Path),
+	authentity(Request, Meta),
+	setting(directory, Dir),
+	request_file(Request, Dir, File),
+	gitty_update(Dir, File, "", Meta, _New),
 	reply_json_dict(true).
 
-request_file(Request, File, Path) :-
+request_file(Request, Dir, File) :-
 	option(path_info(PathInfo), Request),
 	atom_concat(/, File, PathInfo),
-	http_safe_file(File, []),
-	catch(absolute_file_name(web_storage(File), Path, [access(read)]),
-	      error(existence_error(source_sink, _), _),
-	      http_404([], Request)).
+	(   gitty_file(Dir, File, _Hash)
+	->  true
+	;   http_404([], Request)
+	).
 
 storage_url(File, HREF) :-
-	http_absolute_uri(root(storage/File), HREF).
+	http_link_to_id(web_storage, path_postfix(File), HREF).
 
-save_string(File, Data) :-
-	setup_call_cleanup(
-	    open(File, write, S, [encoding(utf8)]),
-	    write(S, Data),
-	    close(S)).
+%%	storage_get(+Request, +Format) is det.
+
+storage_get(Request, swish) :-
+	swish_reply_config(Request), !.
+storage_get(Request, swish) :- !,
+	setting(directory, Dir),
+	request_file(Request, Dir, File),
+	gitty_data(Dir, File, Code, _Meta),
+	swish_reply([code(Code),file(File)], Request).
+storage_get(Request, _) :-
+	setting(directory, Dir),
+	request_file(Request, Dir, File),
+	gitty_data(Dir, File, Code, _Meta),
+	file_mime_type(File, MIME),
+	format('Content-type: ~w~n~n', [MIME]),
+	format('~s', [Code]).
+
+
+%%	authentity(+Request, -Authentity:dict) is det.
+%
+%	Provide authentication meta-information.  Currently user by
+%	exploiting the pengine authentication hook and peer.
+
+authentity(Request, Authentity) :-
+	phrase(authentity(Request), Pairs),
+	dict_pairs(Authentity, _, Pairs).
+
+authentity(Request) -->
+	(user(Request)->[];[]),
+	(peer(Request)->[];[]).
+
+:- multifile
+	pengines:authentication_hook/3.
+
+user(Request) -->
+	{ pengines:authentication_hook(Request, swish, User),
+	  ground(User)
+	},
+	[ user-User ].
+peer(Request) -->
+	{ http_peer(Request, Peer) },
+	[ peer-Peer ].
 
 %%	random_filename(-Name) is det.
 %

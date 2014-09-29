@@ -29,9 +29,9 @@
 
 :- module(swish_examples, []).
 :- use_module(library(http/http_dispatch)).
-:- use_module(library(http/http_server_files)).
 :- use_module(library(http/http_json)).
 :- use_module(library(http/json)).
+:- use_module(library(http/http_path)).
 :- use_module(library(filesex)).
 :- use_module(library(apply)).
 :- use_module(library(lists)).
@@ -39,11 +39,15 @@
 /** <module> Serve example files
 */
 
-user:file_search_path(swish_examples, swish(examples)).
+:- multifile
+	user:file_search_path/2,
+	swish_config:source_alias/1.
 
-:- http_handler(swish(example),
-		serve_files_in_directory(swish_examples),
-		[prefix, id(swish_example)]).
+% make example(File) find the example data
+user:file_search_path(example, swish(examples)).
+% make SWISH serve /example/File as example(File).
+swish_config:source_alias(example).
+
 :- http_handler(swish(list_examples),
 		list_examples, [id(swish_examples)]).
 
@@ -54,21 +58,28 @@ user:file_search_path(swish_examples, swish(examples)).
 %	a file swish_examples('index.json').
 
 list_examples(_Request) :-
-	http_link_to_id(swish_example, [], HREF),
+	http_absolute_location(swish(example), HREF, []),
 	findall(Index,
-		absolute_file_name(swish_examples('index.json'), Index,
+		absolute_file_name(example(.), Index,
 				   [ access(read),
+				     file_type(directory),
 				     file_errors(fail),
 				     solutions(all)
 				   ]),
-		Indexes),
-	maplist(index_json(HREF), Indexes, JSON),
+		ExDirs),
+	maplist(index_json(HREF), ExDirs, JSON),
 	append(JSON, AllExamples),
 	reply_json(AllExamples).
 
-index_json(HREF, File, JSON) :-
+index_json(HREF, Dir, JSON) :-
+	directory_file_path(Dir, 'index.json', File),
+	access_file(File, read), !,
 	read_file_to_json(File, JSON0),
 	maplist(add_href(HREF), JSON0, JSON).
+index_json(HREF, Dir, JSON) :-
+	string_concat(Dir, "/*.pl", Pattern),
+	expand_file_name(Pattern, Files),
+	maplist(ex_file_json(HREF), Files, JSON).
 
 read_file_to_json(File, JSON) :-
 	setup_call_cleanup(
@@ -78,3 +89,13 @@ read_file_to_json(File, JSON) :-
 
 add_href(HREF0, Dict, Dict.put(href, HREF)) :-
 	directory_file_path(HREF0, Dict.file, HREF).
+
+%%	ex_file_json(+ExampleBase, +Path, -JSON) is det.
+%
+%	@tbd	Beautify title from file-name (_ --> space, start
+%		with capital, etc).
+
+ex_file_json(HREF0, Path, json{file:File, href:HREF, title:Base}) :-
+	file_base_name(Path, File),
+	file_name_extension(Base, _, File),
+	directory_file_path(HREF0, File, HREF).
