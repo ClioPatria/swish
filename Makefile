@@ -1,8 +1,8 @@
 # Create a ClioPatria SWISH package from the SWISH distribution.
 
 DIRS=lib/swish web/icons web/help
-LIBS=lib/swish/storage.pl lib/swish/page.pl lib/swish/help.pl \
-     lib/swish/examples.pl lib/swish/config.pl
+LIBS=$(addprefix lib/swish/, \
+       storage.pl page.pl help.pl examples.pl config.pl gitty.pl)
 JS=web/js/swish-min.js web/js/swish-min.js.gz web/js/require.js
 CSS=web/css/swish-min.css web/css/swish-min.css.gz
 ICONS=web/icons/owl_25_years.png \
@@ -36,3 +36,6 @@ web/icons/%: src/web/icons/%
 
 web/help/%: src/web/help/%
 	rsync -u $< $@
+
+clean::
+	rm -f $(LIBS) $(JS) $(CSS) $(ICONS) $(HELP)

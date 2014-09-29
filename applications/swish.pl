@@ -49,14 +49,6 @@
 http:location(swish, root(swish), []).
 
 
-		 /*******************************
-		 *	   HTTP HANDLERS	*
-		 *******************************/
-
-:- http_handler(swish(.), serve_files_in_directory(swish_web), [prefix]).
-:- http_handler(swish(.), http_redirect(moved_temporary, swish('index.html')), []).
-
-
                  /*******************************
                  *   CREATE SWISH APPLICATION   *
                  *******************************/
@@ -66,6 +58,8 @@ http:location(swish, root(swish), []).
 
 :- pengine_application(swish).
 :- use_module(swish:library(pengines_io)).
+:- use_module(swish:library(semweb/rdf_db)).
+:- use_module(swish:library(semweb/rdfs)).
 pengines:prepare_module(Module, swish, _Options) :-
 	pengines_io:pengine_bind_io_to_html(Module).
 
