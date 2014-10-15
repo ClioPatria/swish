@@ -40,6 +40,8 @@
 :- use_module(library(swish/storage)).
 :- use_module(library(swish/examples)).
 :- use_module(library(swish/help)).
+:- use_module(library(swish/highlight)).
+:- use_module(library(swish/render)).
 
 
 		 /*******************************
@@ -47,6 +49,8 @@
 		 *******************************/
 
 http:location(swish, root(swish), []).
+
+user:file_search_path(render, library(swish/render)).
 
 
                  /*******************************
@@ -57,9 +61,12 @@ http:location(swish, root(swish), []).
 	pengines:prepare_module/3.
 
 :- pengine_application(swish).
+:- use_rendering(swish:rdf).
+:- use_module(swish:library(swish/render)).
 :- use_module(swish:library(pengines_io)).
 :- use_module(swish:library(semweb/rdf_db)).
 :- use_module(swish:library(semweb/rdfs)).
+:- use_module(swish:library(aggregate)).
 pengines:prepare_module(Module, swish, _Options) :-
 	pengines_io:pengine_bind_io_to_html(Module).
 
@@ -69,3 +76,8 @@ pengines:prepare_module(Module, swish, _Options) :-
 
 :- use_module(library(clpfd), []).
 :- use_module(library(clpb), []).
+
+% rendering libraries
+
+:- use_module(library(swish/render/table), []).
+:- use_module(library(swish/render/rdf), []).
