@@ -10,7 +10,7 @@ JS=web/js/swish-min.js web/js/swish-min.js.gz web/js/require.js
 CSS=web/css/swish-min.css web/css/swish-min.css.gz
 ICON_FILES=owl_25_years.png dead.png error.png running.gif page-fold-20.png
 ICONS=$(addprefix web/icons/, $(ICON_FILES))
-HELP=$(addprefix web/help/, $(shell cd src/web/help && echo *.html))
+HELP=$(addprefix web/help/, $(notdir $(wildcard src/web/help/*.html)))
 
 all:	$(DIRS) $(LIBS) $(JS) $(CSS) $(ICONS) $(HELP)
 
