@@ -66,6 +66,7 @@ user:file_search_path(render, library(swish/render)).
 :- use_module(swish:library(pengines_io)).
 :- use_module(swish:library(semweb/rdf_db)).
 :- use_module(swish:library(semweb/rdfs)).
+:- use_module(swish:library(semweb/rdf_optimise)).
 :- use_module(swish:library(aggregate)).
 pengines:prepare_module(Module, swish, _Options) :-
 	pengines_io:pengine_bind_io_to_html(Module).
