@@ -42,6 +42,7 @@
 :- use_module(library(http/http_dispatch)).
 :- use_module(library(http/http_parameters)).
 :- use_module(library(http/html_write)).
+:- use_module(library(http/js_write)).
 :- use_module(library(http/http_path)).
 :- if(exists_source(library(http/http_ssl_plugin))).
 :- use_module(library(http/http_ssl_plugin)).
@@ -213,7 +214,7 @@ swish_logo -->
 swish_content(Options) -->
 	swish_resources,
 	html(div([id(content), class([container, swish])],
-		 [ div([class([tile, horizontal]), 'data-split'('60%')],
+		 [ div([class([tile, horizontal]), 'data-split'('50%')],
 		       [ div(class('prolog-editor'), \source(Options)),
 			 div([class([tile, vertical]), 'data-split'('70%')],
 			     [ div(class('prolog-runners'), []),
@@ -372,9 +373,18 @@ include_swish_js -->
 	  http_absolute_location(swish(js/JS), SwishJS, []),
 	  http_absolute_location(swish(RJS),   SwishRJS, [])
 	},
+	rjs_timeout(JS),
 	html(script([ src(SwishRJS),
 		      'data-main'(SwishJS)
 		    ], [])).
+
+rjs_timeout('swish-min') --> !,
+	js_script({|javascript||
+// Override RequireJS timeout, until main file is loaded.
+window.require = { waitSeconds: 0 };
+		  |}).
+rjs_timeout(_) --> [].
+
 
 include_swish_css -->
 	{ swish_resource(css, CSS),

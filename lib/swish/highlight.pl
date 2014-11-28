@@ -30,7 +30,6 @@
 :- module(swish_highlight,
 	  [
 	  ]).
-:- use_module(library(pce)).
 :- use_module(library(debug)).
 :- use_module(library(http/http_dispatch)).
 :- use_module(library(http/html_write)).
@@ -39,6 +38,9 @@
 :- use_module(library(http/http_parameters)).
 :- use_module(library(pairs)).
 :- use_module(library(apply)).
+:- use_module(library(error)).
+:- use_module(library(prolog_xref)).
+:- use_module(library(memfile)).
 :- use_module(library(prolog_colour)).
 :- if(exists_source(library(helpidx))).
 :- use_module(library(helpidx), [predicate/5]).
@@ -80,68 +82,104 @@ tokens_.
 %	    - text: list(atom) of inserted text
 %	    - origin: what caused this change event
 %	    - next: optional next change event.
+%
+%	Reply is JSON and either 200 with  `true` or 409 indicating that
+%	the editor is not known.
 
 codemirror_change(Request) :-
 	http_read_json_dict(Request, Change, []),
 	debug(cm(change), 'Change ~p', [Change]),
-	shadow_editor(Change, TB),
-	apply_change(TB, Change.change),
-	reply_json_dict(true).
+	UUID = Change.uuid,
+	(   shadow_editor(Change, TB)
+	->  (	catch(apply_change(TB, Changed, Change.change),
+		      cm(outofsync), fail)
+	    ->  mark_changed(TB, Changed),
+		reply_json_dict(true)
+	    ;	destroy_editor(UUID),
+		change_failed(UUID, outofsync)
+	    )
+	;   change_failed(UUID, existence_error)
+	).
+
+change_failed(UUID, Reason) :-
+	reply_json_dict(json{ type:Reason,
+			      object:UUID
+			    },
+			[status(409)]).
 
 
-apply_change(_, []) :- !.
-apply_change(TB, Change) :-
+%%	apply_change(+TB, -Changed, +Changes) is det.
+%
+%	Note that the argument order is like this to allow for maplist.
+%
+%	@arg Changed is left unbound if there are no changes or unified
+%	to =true= if something has changed.
+%
+%	@throws	cm(outofsync) if an inconsistent delete is observed.
+
+apply_change(_, _Changed, []) :- !.
+apply_change(TB, Changed, Change) :-
 	_{from:From} :< Change,
-	get(TB, scan, 0, line, From.line, start, SOL),
-	ChPos is SOL+From.ch,
-	remove(Change.removed, TB, ChPos),
-	insert(Change.text, TB, ChPos, End),
-	send(TB, caret, End),
+	Line is From.line+1,
+	memory_file_line_position(TB, Line, From.ch, ChPos),
+	remove(Change.removed, TB, ChPos, Changed),
+	insert(Change.text, TB, ChPos, _End, Changed),
 	(   Next = Change.get(next)
-	->  apply_change(TB, Next)
+	->  apply_change(TB, Changed, Next)
 	;   true
 	).
 
-remove([], _, _) :- !.
-remove([H|T], TB, ChPos) :-
-	atom_length(H, Len),
+remove([], _, _, _) :- !.
+remove([H|T], TB, ChPos, Changed) :-
+	string_length(H, Len),
 	(   T == []
 	->  DLen is Len
 	;   DLen is Len+1
 	),
 	(   DLen == 0
 	->  true
-	;   send(TB, delete, ChPos, DLen)
+	;   Changed = true,
+	    memory_file_substring(TB, ChPos, Len, _, Text),
+	    (	Text == H
+	    ->	true
+	    ;	throw(cm(outofsync))
+	    ),
+	    delete_memory_file(TB, ChPos, DLen)
 	),
-	remove(T, TB, ChPos).
+	remove(T, TB, ChPos, Changed).
 
-insert([], _, ChPos, ChPos) :- !.
-insert([H|T], TB, ChPos0, ChPos) :-
-	atom_length(H, Len),
-	(   T == []
-	->  Fmt = '%s',
-	    ChPos1 = ChPos0+Len
-	;   Fmt = '%s\n',
-	    ChPos1 is ChPos0+Len+1
+insert([], _, ChPos, ChPos, _) :- !.
+insert([H|T], TB, ChPos0, ChPos, Changed) :-
+	(   H == ""
+	->  true
+	;   Changed = true,
+	    string_length(H, Len),
+	    debug(swish(change), 'Insert ~q at ~d', [H, ChPos0]),
+	    insert_memory_file(TB, ChPos0, H)
 	),
-	send(TB, insert, ChPos0, string(Fmt, H), 1),
-	insert(T, TB, ChPos1, ChPos).
+	ChPos1 is ChPos0+Len,
+	(   T == []
+	->  ChPos2 = ChPos1
+	;   debug(swish(change), 'Adding newline at ~d', [ChPos1]),
+	    Changed = true,
+	    insert_memory_file(TB, ChPos1, '\n'),
+	    ChPos2 is ChPos1+1
+	),
+	insert(T, TB, ChPos2, ChPos, Changed).
 
 :- dynamic
-	current_editor/2.
+	current_editor/3,			% UUID, MemFile, Role
+	xref_upto_data/1.			% UUID
 
 create_editor(UUID, Editor, Change) :-
 	must_be(atom, UUID),
 	uuid_like(UUID),
-	(   Role = Change.get(role)
-	->  new(Editor, source_buffer(UUID, Role))
-	;   new(Editor, source_buffer(UUID))
+	new_memory_file(Editor),
+	(   RoleString = Change.get(role)
+	->  atom_string(Role, RoleString)
+	;   Role = source
 	),
-	(   debugging(text_buffer)
-	->  send(Editor, open)
-	;   true
-	),
-	asserta(current_editor(UUID, Editor)).
+	asserta(current_editor(UUID, Editor, Role)).
 
 %%	uuid_like(+UUID) is semidet.
 %
@@ -152,17 +190,26 @@ create_editor(UUID, Editor, Change) :-
 uuid_like(UUID) :-
 	split_string(UUID, "-", "", Parts),
 	maplist(string_length, Parts, [8,4,4,4,12]),
-	\+ current_editor(UUID, _).
+	\+ current_editor(UUID, _, _).
 
-destroy_editor(UUID, Editor) :-
+%%	destroy_editor(+UUID)
+%
+%	Destroy source admin UUID: the shadow  text (a memory file), the
+%	XREF data and the module used for cross-referencing.
+
+destroy_editor(UUID) :-
 	must_be(atom, UUID),
+	retractall(xref_upto_data(UUID)),
+	current_editor(UUID, Editor, _), !,
 	(   xref_source_id(Editor, SourceID)
 	->  xref_clean(SourceID),
-	    '$destroy_module'(UUID)	% temp xref module
+	    destroy_state_module(UUID)
 	;   true
 	),
-	retractall(current_editor(UUID, Editor)),
-	free(Editor).
+	% destroy late to make xref_source_identifier/2 work.
+	retractall(current_editor(UUID, Editor, _)),
+	free_memory_file(Editor).
+destroy_editor(_).
 
 
 :- multifile
@@ -170,11 +217,11 @@ destroy_editor(UUID, Editor) :-
 	prolog:xref_open_source/2.
 
 prolog:xref_source_identifier(UUID, UUID) :-
-	current_editor(UUID, _).
+	current_editor(UUID, _, _).
 
 prolog:xref_open_source(UUID, Stream) :-
-	current_editor(UUID, TB), !,
-	pce_open(TB, read, Stream).
+	current_editor(UUID, TB, _Role), !,
+	open_memory_file(TB, read, Stream).
 
 
 %%	codemirror_leave(+Request)
@@ -187,125 +234,72 @@ codemirror_leave(Request) :-
 	http_read_json_dict(Request, Data, []),
 	debug(cm(leave), 'Leaving editor ~p', [Data]),
 	(   atom_string(UUID, Data.get(uuid))
-	->  forall(current_editor(UUID, TB),
-		   destroy_editor(UUID, TB))
+	->  forall(current_editor(UUID, _TB, _Role),
+		   destroy_editor(UUID))
 	;   true
 	),
 	reply_json_dict(true).
 
+%%	mark_changed(+MemFile, ?Changed) is det.
+%
+%	Mark that our cross-reference data might be obsolete
 
-		 /*******************************
-		 *	CLASS SOURCE BUFFER	*
-		 *******************************/
-
-/* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-This XPCE class reuses XPCE's editor   infrastructructure  to maintain a
-mirror of the user's editor. This is   not  ideal because XPCE's objects
-are much more heavy weight that what is  needed for this purpos and XPCE
-is  not  multi-threaded.  Eventually,  we'll  make   a  snappy  small  C
-datastructure to deal with this. An alternative   might be to add insert
-and delete behaviour to Prolog's memory files.
-- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
-
-:- pce_begin_class(source_buffer, text_buffer,
-		   "Server side buffer for web editors").
-
-variable(uuid,		  name,		  get,	"Associated source id").
-variable(role,		  {source,query}, both,	"Associated source id").
-variable(file,		  name*,	  get,	"Associated file").
-variable(xref_generation, int*,		  get,	"Generation of last xref").
-
-% do not maintain undo information.
-class_variable(undo_buffer_size, int, 0).
-
-initialise(TB, UUID:uuid=name, Role:role=[{source,query}]) :->
-	"Create from UUID"::
-	send_super(TB, initialise),
-	send(TB, slot, uuid, UUID),
-	default(Role, source, TheRole),
-	send(TB, slot, role, TheRole).
-
-open(TB) :->
-	"Open graphical window (for debugging)"::
-	in_pce_thread(show_text_buffer(TB)).
-
-caret(TB, Pos:int) :->
-	"Provide feedback on caret location"::
-	get(TB, editors, Editors),
-	(   send(Editors, empty)
-	->  true
-	;   in_pce_thread(caret_editors(Editors, Pos))
-	).
-
-caret_editors(Editors, Caret) :-
-	send(Editors, for_all, message(@arg1, caret, Caret)).
-
-show_text_buffer(TextBuffer) :-
-	new(E, editor(TextBuffer)),
-	send(view(editor:=E), open).
-
-xref_source(TB, Always:[bool]) :->
-	"Run the cross-referencer on buffer"::
-	get(TB, generation, G),
-	(   (   Always == @on
-	    ->  true
-	    ;   get(TB, xref_generation, GRef),
-		GRef \== G
-	    )
-	->  xref_source_id(TB, SourceId),
-	    (	TB == SourceId
-	    ->	true
-	    ;	send(TB, attribute, xref_source_id, SourceId)
-	    ),
-	    (	xref_module(TB, Module)
-	    ->  xref_source(SourceId,
-			    [ silent(true),
-			      module(Module)
-			    ])
-	    ;	xref_source(SourceId, [silent(true)])
-	    ),
-	    send(TB, slot, xref_generation, G)
+mark_changed(MemFile, Changed) :-
+	(   Changed == true
+	->  current_editor(UUID, MemFile, _Role),
+	    retractall(xref_upto_data(UUID))
 	;   true
 	).
 
-xref_source_id(M, SourceId:any) :<-
-	"Xref source identifier"::
-	get(M, text_buffer, TB),
-	(   get(TB, attribute, xref_source_id, SourceId)
-	->  true
-	;   SourceId = TB
-	).
+%%	xref(+UUID) is det.
+
+xref(UUID) :-
+	xref_upto_data(UUID), !.
+xref(UUID) :-
+	current_editor(UUID, MF, _Role),
+	xref_source_id(MF, SourceId),
+	xref_state_module(MF, Module),
+	xref_source(SourceId,
+		    [ silent(true),
+		      module(Module)
+		    ]),
+	asserta(xref_upto_data(UUID)).
 
 %%	xref_source_id(+TextBuffer, -SourceID) is det.
 %
 %	Find the object we need  to   examine  for cross-referencing. If
 %	this is an included file, this is the corresponding main file.
 
-xref_source_id(TB, SourceId) :-
-	get(TB, file, File), File \== @nil, !,
-	get(File, absolute_path, Path0),
-	absolute_file_name(Path0, Path),
-	master_load_file(Path, [], Master),
-	(   Master == Path
-	->  SourceId = TB
-	;   SourceId = Master
-	).
-xref_source_id(TB, SourceId) :-
-	get(TB, uuid, SourceId).
+%xref_source_id(TB, SourceId) :-
+%	get(TB, file, File), File \== @nil, !,
+%	get(File, absolute_path, Path0),
+%	absolute_file_name(Path0, Path),
+%	master_load_file(Path, [], Master),
+%	(   Master == Path
+%	->  SourceId = TB
+%	;   SourceId = Master
+%	).
+xref_source_id(TB, UUID) :-
+	current_editor(UUID, TB, _Role).
 
-%%	xref_module(+TB, -Module) is semidet.
+%%	xref_state_module(+TB, -Module) is semidet.
 %
-%	True if we must run the cross-referencing in Module. Now, we use
-%	a single module. Eventually, we should use multiple modules from
-%	a pool.
+%	True if we must run the cross-referencing   in  Module. We use a
+%	temporary module based on the UUID of the source.
 
-xref_module(TB, Module) :-
-	get(TB, uuid, Module),
-	(   module_property(foobar, class(temporary))
+xref_state_module(TB, UUID) :-
+	current_editor(UUID, TB, _Role),
+	(   module_property(UUID, class(temporary))
 	->  true
-	;   set_module(Module:class(temporary)),
-	    add_import_module(Module, swish, start)
+	;   set_module(UUID:class(temporary)),
+	    add_import_module(UUID, swish, start)
 	).
+
+destroy_state_module(UUID) :-
+	module_property(UUID, class(temporary)), !,
+	'$destroy_module'(UUID).
+destroy_state_module(_).
+
 
 %%	master_load_file(+File, +Seen, -MasterFile) is det.
 %
@@ -318,8 +312,6 @@ master_load_file(File0, Seen, File) :-
 	\+ memberchk(File1, Seen), !,
 	master_load_file(File1, [File0|Seen], File).
 master_load_file(File, _, File).
-
-:- pce_end_class.
 
 
 		 /*******************************
@@ -334,41 +326,69 @@ master_load_file(File, _, File).
 codemirror_tokens(Request) :-
 	http_read_json_dict(Request, Data, []),
 	debug(cm(tokens), 'Asking for tokens: ~p', [Data]),
-	(   shadow_editor(Data, TB)
-	->  enriched_tokens(TB, Data, Tokens)
-	;   Tokens = [[]]
-	),
-	reply_json_dict(json{tokens:Tokens}, [width(0)]).
+	(   catch(shadow_editor(Data, TB), cm(Reason), true)
+	->  (   var(Reason)
+	    ->	enriched_tokens(TB, Data, Tokens),
+		reply_json_dict(json{tokens:Tokens}, [width(0)])
+	    ;	change_failed(Data.uuid, Reason)
+	    )
+	;   reply_json_dict(json{tokens:[[]]})
+	).
+
 
 enriched_tokens(TB, _Data, Tokens) :-		% source window
-	get(TB, role, source), !,
-	send(TB, xref_source),
+	current_editor(UUID, TB, source), !,
+	xref(UUID),
 	server_tokens(TB, Tokens).
 enriched_tokens(TB, Data, Tokens) :-		% query window
 	atom_string(SourceID, Data.get(sourceID)),
-	current_editor(SourceID, SourceTB),
-	xref_source_id(SourceTB, XRefID), !,
-	get(TB, contents, string(Query)),
-	prolog_colourise_query(Query, XRefID, colour_item(TB)),
+	memory_file_to_string(TB, Query),
+	prolog_colourise_query(Query, SourceID, colour_item(TB)),
 	collect_tokens(TB, Tokens).
 enriched_tokens(TB, _Data, Tokens) :-
-	get(TB, contents, string(Query)),
+	memory_file_to_string(TB, Query),
 	prolog_colourise_query(Query, swish, colour_item(TB)),
 	collect_tokens(TB, Tokens).
 
+%%	shadow_editor(+Data, -MemoryFile) is det.
+%
+%	Get our shadow editor:
+%
+%	  1. If we have one, it is updated from either the text or the changes.
+%	  2. If we have none, but there is a `text` property, create one
+%	     from the text.
+%	  3. If there is a `role` property, create an empty one.
+%
+%	This predicate fails if the server thinks we have an editor with
+%	state that must be reused, but  this   is  not true (for example
+%	because we have been restarted).
+%
+%	@throws cm(existence_error)
+
+shadow_editor(Data, TB) :-
+	atom_string(UUID, Data.get(uuid)),
+	current_editor(UUID, TB, _Role), !,
+	(   Text = Data.get(text)
+	->  size_memory_file(TB, Size),
+	    delete_memory_file(TB, 0, Size),
+	    insert_memory_file(TB, 0, Text),
+	    mark_changed(TB, true)
+	;   Changes = Data.get(changes)
+	->  maplist(apply_change(TB, Changed), Changes),
+	    mark_changed(TB, Changed)
+	).
 shadow_editor(Data, TB) :-
 	Text = Data.get(text), !,
 	atom_string(UUID, Data.uuid),
 	create_editor(UUID, TB, Data),
-	send(TB, contents, string(Text)).
+	debug(swish(change), 'Initialising editor to ~q', [Text]),
+	insert_memory_file(TB, 0, Text).
 shadow_editor(Data, TB) :-
 	_{role:_} :< Data, !,
 	atom_string(UUID, Data.uuid),
 	create_editor(UUID, TB, Data).
-shadow_editor(Data, TB) :-
-	atom_string(UUID, Data.get(uuid)), !,
-	current_editor(UUID, TB).
-
+shadow_editor(_Data, _TB) :-
+	throw(cm(existence_error)).
 
 :- thread_local
 	token/3.
@@ -384,14 +404,17 @@ shadow_editor(Data, TB) :-
 %	@arg	Role is one of =source= or =query=, expressing the role of
 %		the editor in the SWISH UI.
 
+:- public
+	show_mirror/1,
+	server_tokens/1.
+
 show_mirror(Role) :-
-	current_editor(_UUID, TB),
-	get(TB, role, Role), !,
-	send(TB, open).
+	current_editor(_UUID, TB, Role), !,
+	memory_file_to_string(TB, String),
+	write(user_error, String).
 
 server_tokens(Role) :-
-	current_editor(_UUID, TB),
-	get(TB, role, Role), !,
+	current_editor(_UUID, TB, Role), !,
 	server_tokens(TB, Tokens),
 	print_term(Tokens, [output(user_error)]).
 
@@ -401,9 +424,9 @@ server_tokens(Role) :-
 %		represents the tokens found in a single toplevel term.
 
 server_tokens(TB, GroupedTokens) :-
-	get(TB, uuid, UUID),
+	current_editor(UUID, TB, _Role),
 	setup_call_cleanup(
-	    pce_open(TB, read, Stream),
+	    open_memory_file(TB, read, Stream),
 	    ( set_stream_file(TB, Stream),
 	      prolog_colourise_stream(Stream, UUID, colour_item(TB))
 	    ),
@@ -470,13 +493,13 @@ json_token(TB, Start, Token) :-
 	dict_create(Token, json, [type(Type)|Attrs]).
 
 atomic_special(atom, Start, Len, TB, Type, Attrs) :-
-	(   get(TB, character, Start, 0'\')
+	(   memory_file_substring(TB, Start, 1, _, "'")
 	->  Type = qatom,
 	    Attrs = []
 	;   Type = atom,
 	    (   Len =< 5			% solo characters, neck, etc.
-	    ->  get(TB, contents, Start, Len, string(Text)),
-	        Attrs = [text(#(Text))]
+	    ->  memory_file_substring(TB, Start, Len, _, Text),
+	        Attrs = [text(Text)]
 	    ;   Attrs = []
 	    )
 	).
@@ -489,8 +512,8 @@ json_attributes([_|T0], T, TB, Start, Len) :-
 	json_attributes(T0, T, TB, Start, Len).
 
 
-json_attribute(text, text(#(Text)), TB, Start, Len) :- !,
-	get(TB, contents, Start, Len, string(Text)).
+json_attribute(text, text(Text), TB, Start, Len) :- !,
+	memory_file_substring(TB, Start, Len, _, Text).
 json_attribute(Term, Term, _, _, _).
 
 colour_item(_TB, Style, Start, Len) :-
