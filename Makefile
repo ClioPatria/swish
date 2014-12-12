@@ -2,7 +2,7 @@
 
 DIRS=lib/swish lib/swish/render web/icons web/help
 SWISHLIB=storage.pl page.pl help.pl examples.pl config.pl gitty.pl \
-	 highlight.pl render.pl
+	 highlight.pl render.pl template_hint.pl
 RENDER=table.pl
 LIBS=	$(addprefix lib/swish/, $(SWISHLIB)) \
 	$(addprefix lib/swish/render/, $(RENDER))

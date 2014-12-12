@@ -42,6 +42,7 @@
 :- use_module(library(swish/help)).
 :- use_module(library(swish/highlight)).
 :- use_module(library(swish/render)).
+:- use_module(library(swish/template_hint)).
 
 
 		 /*******************************
