@@ -1,8 +1,9 @@
 # Create a ClioPatria SWISH package from the SWISH distribution.
 
-DIRS=lib/swish lib/swish/render web/icons web/help
+FONTDIR=web/bower_components/bootstrap/dist/fonts
+DIRS=lib/swish lib/swish/render web/icons web/help $(FONTDIR)
 SWISHLIB=storage.pl page.pl help.pl examples.pl config.pl gitty.pl \
-	 highlight.pl render.pl template_hint.pl
+	 highlight.pl render.pl template_hint.pl search.pl form.pl
 RENDER=table.pl
 LIBS=	$(addprefix lib/swish/, $(SWISHLIB)) \
 	$(addprefix lib/swish/render/, $(RENDER))
@@ -11,16 +12,13 @@ CSS=web/css/swish-min.css web/css/swish-min.css.gz
 ICON_FILES=owl_25_years.png dead.png error.png running.gif page-fold-20.png
 ICONS=$(addprefix web/icons/, $(ICON_FILES))
 HELP=$(addprefix web/help/, $(notdir $(wildcard src/web/help/*.html)))
+FONTFILES=glyphicons-halflings-regular.ttf \
+	  glyphicons-halflings-regular.woff
+FONTS=$(addprefix $(FONTDIR)/, $(FONTFILES))
 
-all:	$(DIRS) $(LIBS) $(JS) $(CSS) $(ICONS) $(HELP)
+all:	$(DIRS) $(LIBS) $(JS) $(CSS) $(ICONS) $(HELP) $(FONTS)
 
-lib/swish:
-	mkdir -p $@
-lib/swish/render:
-	mkdir -p $@
-web/icons:
-	mkdir -p $@
-web/help:
+$(DIRS):
 	mkdir -p $@
 
 lib/swish/%: src/lib/%
@@ -40,6 +38,9 @@ web/icons/%: src/web/icons/%
 	rsync -u $< $@
 
 web/help/%: src/web/help/%
+	rsync -u $< $@
+
+$(FONTDIR)/%: src/$(FONTDIR)/%
 	rsync -u $< $@
 
 clean::
