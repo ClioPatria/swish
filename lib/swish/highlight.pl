@@ -334,7 +334,7 @@ enriched_tokens(TB, Data, Tokens) :-		% query window
 	collect_tokens(TB, Tokens).
 enriched_tokens(TB, _Data, Tokens) :-
 	memory_file_to_string(TB, Query),
-	prolog_colourise_query(Query, swish, colour_item(TB)),
+	prolog_colourise_query(Query, module(swish), colour_item(TB)),
 	collect_tokens(TB, Tokens).
 
 %%	shadow_editor(+Data, -MemoryFile) is det.
@@ -402,7 +402,7 @@ show_mirror(Role) :-
 
 server_tokens(Role) :-
 	current_editor(_UUID, TB, Role), !,
-	server_tokens(TB, Tokens),
+	enriched_tokens(TB, _{}, Tokens),
 	print_term(Tokens, [output(user_error)]).
 
 %%	server_tokens(+TextBuffer, -Tokens) is det.
@@ -571,7 +571,7 @@ style(control,		 control,			   [text]).
 style(identifier,	 identifier,			   [text]).
 style(module(_Module),   module,			   [text]).
 style(error,		 error,				   [text]).
-style(type_error(_Expect), error,			   [text]).
+style(type_error(Expect), error,		      [text,expected(Expect)]).
 style(syntax_error(_Msg,_Pos), syntax_error,		   []).
 style(predicate_indicator, atom,			   [text]).
 style(predicate_indicator, atom,			   [text]).
