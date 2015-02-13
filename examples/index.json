@@ -2,4 +2,6 @@
 
 [
 { "file":"rdf_queries.pl",		  "title":"General queries" },
+{ "file":"rdf_literal.pl",		  "title":"Queries on literals" },
+{ "file":"rdf_update.pl",		  "title":"Update queries" },
 ]
