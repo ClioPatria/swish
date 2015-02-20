@@ -49,7 +49,7 @@ Render RDF data.
 term_rendering(Term, _Vars, Options) -->
 	{ is_rdf(Term)
 	}, !,
-	rdf_link(Term, Options).
+	rdf_link(Term, [target('cliopatria-localview'), Options]).
 
 is_rdf(Term) :-
 	is_uri(Term), !.
