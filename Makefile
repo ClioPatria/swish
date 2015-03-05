@@ -3,7 +3,8 @@
 FONTDIR=web/bower_components/bootstrap/dist/fonts
 DIRS=lib/swish lib/swish/render web/icons web/help $(FONTDIR)
 SWISHLIB=storage.pl page.pl help.pl examples.pl config.pl gitty.pl \
-	 highlight.pl render.pl template_hint.pl search.pl form.pl
+	 highlight.pl render.pl template_hint.pl search.pl form.pl \
+	 include.pl
 RENDER=table.pl
 LIBS=	$(addprefix lib/swish/, $(SWISHLIB)) \
 	$(addprefix lib/swish/render/, $(RENDER))

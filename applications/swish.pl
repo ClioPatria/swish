@@ -38,6 +38,7 @@
 :- use_module(library(swish/config)).
 :- use_module(library(swish/page), []).
 :- use_module(library(swish/storage)).
+:- use_module(library(swish/include)).
 :- use_module(library(swish/examples)).
 :- use_module(library(swish/help)).
 :- use_module(library(swish/highlight)).
@@ -52,6 +53,19 @@
 http:location(swish, root(swish), []).
 
 user:file_search_path(render, library(swish/render)).
+
+
+		 /*******************************
+		 *	      CONFIG		*
+		 *******************************/
+
+:- multifile
+	swish_config:config/2,
+	swish_config:source_alias/1.
+
+swish_config:config(show_beware,    false).
+swish_config:config(tabled_results, true).
+swish_config:config(application,    swish).
 
 
                  /*******************************
