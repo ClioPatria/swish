@@ -1,10 +1,10 @@
 # Create a ClioPatria SWISH package from the SWISH distribution.
 
 FONTDIR=web/bower_components/bootstrap/dist/fonts
-DIRS=lib/swish lib/swish/render web/icons web/help $(FONTDIR)
+DIRS=lib/swish lib/swish/render web/icons web/help client $(FONTDIR)
 SWISHLIB=storage.pl page.pl help.pl examples.pl config.pl gitty.pl \
 	 highlight.pl render.pl template_hint.pl search.pl form.pl \
-	 include.pl
+	 include.pl csv.pl
 RENDER=table.pl
 LIBS=	$(addprefix lib/swish/, $(SWISHLIB)) \
 	$(addprefix lib/swish/render/, $(RENDER))
@@ -16,14 +16,19 @@ HELP=$(addprefix web/help/, $(notdir $(wildcard src/web/help/*.html)))
 FONTFILES=glyphicons-halflings-regular.ttf \
 	  glyphicons-halflings-regular.woff
 FONTS=$(addprefix $(FONTDIR)/, $(FONTFILES))
+CLIENTFILES=swish-ask.sh
+CLIENTS=$(addprefix client/, $(CLIENTFILES))
 
-all:	$(DIRS) $(LIBS) $(JS) $(CSS) $(ICONS) $(HELP) $(FONTS)
+all:	$(DIRS) $(LIBS) $(JS) $(CSS) $(ICONS) $(HELP) $(FONTS) $(CLIENTS)
 
 $(DIRS):
 	mkdir -p $@
 
 lib/swish/%: src/lib/%
 	rsync -u $< $@
+client/%: src/client/%
+	sed -e 's/:3050}/:3020}/' -e 's/-prolog}/-rdf}/' $< > $@
+	chmod +x $@
 
 web/js/swish-min.js: src/web/js/swish-min.js
 	rsync -u $< $@

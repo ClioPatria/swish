@@ -34,11 +34,13 @@
 :- use_module(library(http/http_dispatch)).
 :- use_module(library(http/http_server_files)).
 :- use_module(library(http/http_json)).
+:- use_module(rdfql(sparql_csv_result)).
 
 :- use_module(library(swish/config)).
 :- use_module(library(swish/page), []).
 :- use_module(library(swish/storage)).
 :- use_module(library(swish/include)).
+:- use_module(library(swish/csv)).
 :- use_module(library(swish/examples)).
 :- use_module(library(swish/help)).
 :- use_module(library(swish/highlight)).
@@ -66,6 +68,21 @@ user:file_search_path(render, library(swish/render)).
 swish_config:config(show_beware,    false).
 swish_config:config(tabled_results, true).
 swish_config:config(application,    swish).
+
+
+		 /*******************************
+		 *	        CSV		*
+		 *******************************/
+
+:- multifile swish_csv:write_answers/2.
+
+swish_csv:write_answers(Answers, VarTerm) :-
+        Answers = [H|_],
+        functor(H, rdf, _), !,
+        sparql_write_csv_result(
+            current_output,
+            select(VarTerm, Answers),
+            []).
 
 
                  /*******************************
