@@ -16,7 +16,7 @@ HELP=$(addprefix web/help/, $(notdir $(wildcard src/web/help/*.html)))
 FONTFILES=glyphicons-halflings-regular.ttf \
 	  glyphicons-halflings-regular.woff
 FONTS=$(addprefix $(FONTDIR)/, $(FONTFILES))
-CLIENTFILES=swish-ask.sh
+CLIENTFILES=swish-ask.sh README.md sin-table.html
 CLIENTS=$(addprefix client/, $(CLIENTFILES))
 
 all:	$(DIRS) $(LIBS) $(JS) $(CSS) $(ICONS) $(HELP) $(FONTS) $(CLIENTS)
@@ -27,6 +27,8 @@ $(DIRS):
 lib/swish/%: src/lib/%
 	rsync -u $< $@
 client/%: src/client/%
+	rsync -u $< $@
+client/swish-ask.sh: src/client/swish-ask.sh
 	sed -e 's/:3050}/:3020}/' -e 's/-prolog}/-rdf}/' $< > $@
 	chmod +x $@
 
