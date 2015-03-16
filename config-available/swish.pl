@@ -19,6 +19,8 @@ user:file_search_path(example,	 examples).
 % Load the authentication hook. When loaded, ClioPatria users with admin
 % rights can use SWISH without sandboxing security
 :- use_module(library(swish/cp_authenticate)).
+% Enable logging of SWISH queries and sources if HTTP logging is enabled
+:- use_module(library(swish/logging)).
 
 %%      cliopatria:menu_item(-Item, -Label) is nondet.
 %
