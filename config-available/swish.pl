@@ -4,7 +4,9 @@
 /** <module> Add Prolog interaction to ClioPatria
 */
 
-:- multifile user:file_search_path/2.
+:- multifile
+	user:file_search_path/2,
+	swish_config:config/2.
 
 % tell SWISH where to find its parts.   The last clause allows adding an
 % =examples=  directory  in  the  main   directory  holding  application
@@ -21,6 +23,10 @@ user:file_search_path(example,	 examples).
 :- use_module(library(swish/cp_authenticate)).
 % Enable logging of SWISH queries and sources if HTTP logging is enabled
 :- use_module(library(swish/logging)).
+
+% Allows users to extend the Examples menu by ticking the Example
+% checkbox.
+swish_config:config(community_examples, true).
 
 %%      cliopatria:menu_item(-Item, -Label) is nondet.
 %
