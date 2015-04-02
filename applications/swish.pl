@@ -115,6 +115,7 @@ swish_csv:write_answers(Answers, VarTerm) :-
 :- pengine_application(swish).
 :- use_rendering(swish:rdf).
 :- use_module(swish:library(swish/render)).
+:- use_module(swish:library(swish/trace)).
 :- use_module(swish:library(pengines_io)).
 :- use_module(swish:library(semweb/rdf_db)).
 :- use_module(swish:library(semweb/rdfs)).
