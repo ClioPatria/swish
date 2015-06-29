@@ -35,6 +35,9 @@
 :- use_module(library(http/http_dispatch)).
 :- use_module(library(http/http_parameters)).
 :- use_module(library(http/http_json)).
+:- use_module(library(prolog_source)).
+:- use_module(library(option)).
+:- use_module(library(solution_sequences)).
 
 :- use_module(config).
 
@@ -66,6 +69,7 @@ search_box(_Options) -->
 		      [ input([ type(text),
 				class('form-control'),
 				placeholder('Search'),
+				'data-search-in'([source,files,predicates]),
 				title('Searches code, documentation and files'),
 				id('search')
 			      ]),
@@ -91,11 +95,64 @@ typeahead(Request) :-
 	findall(Match, typeahead(Set, Query, Match), Matches),
 	reply_json_dict(Matches).
 
+%%	typeahead(+Type, +Query, -Match) is nondet.
+%
+%	Find  typeahead  suggestions  for  a  specific  search  category
+%	(Type). This oredicate is a   multifile  predicate, which allows
+%	for  adding  new  search  targets.  The  default  implementation
+%	offers:
+%
+%	  - predicates
+%	  Searches for built-in and configured library predicates
+%	  - sources
+%	  Searches all loaded source files.
+%
+%	@tbd: Limit number of hits?
+
+:- multifile
+	swish_config:source_alias/2.
+
 typeahead(predicates, Query, Template) :-
 	swish_config(templates, Templates),
 	member(Template, Templates),
 	_{name:Name, arity:_} :< Template,
 	sub_atom(Name, 0, _, _, Query).
+typeahead(sources, Query, hit{alias:Alias, file:File, ext:Ext,
+			      query:Query, line:LineNo, text:Line}) :-
+	source_file(Path),
+	file_name_on_path(Path, Symbolic),
+	file_name_extension(_, Ext, Path),
+	Symbolic =.. [Alias,File],
+	once(swish_config:source_alias(Alias, _)),
+	limit(5, search_file(Path, Query, LineNo, Line)).
+typeahead(sources, Query, hit{alias:Alias, file:Base, ext:Ext,
+			      query:Query, line:LineNo, text:Line}) :-
+	swish_config:source_alias(Alias, Options),
+	option(search(Pattern), Options),
+	DirSpec =.. [Alias,.],
+	absolute_file_name(DirSpec, Dir,
+			   [ access(read),
+			     file_type(directory),
+			     solutions(all),
+			     file_errors(fail)
+			   ]),
+	directory_file_path(Dir, Pattern, FilePattern),
+	expand_file_name(FilePattern, Files),
+	atom_concat(Dir, /, DirSlash),
+	member(Path, Files),
+	\+ source_file(Path),		% already did this one above
+	atom_concat(DirSlash, File, Path),
+	file_name_extension(Base, Ext, File),
+	limit(5, search_file(Path, Query, LineNo, Line)).
+
+search_file(Path, Query, LineNo, Line) :-
+	setup_call_cleanup(
+	    open(Path, read, In),
+	    read_string(In, _, String),
+	    close(In)),
+	split_string(String, "\n", "\r", Lines),
+	nth1(LineNo, Lines, Line),
+	once(sub_string(Line, _, _, _, Query)).
 
 %%	search(+Request)
 %
