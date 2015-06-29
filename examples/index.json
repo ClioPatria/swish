@@ -4,5 +4,7 @@
 { "file":"rdf_queries.pl",		  "title":"General queries" },
 { "file":"rdf_literal.pl",		  "title":"Queries on literals" },
 { "file":"rdf_update.pl",		  "title":"Update queries" },
-{ "file":"maintenance.pl",		  "title":"Maintenance queries" }
+{ "file":"maintenance.pl",		  "title":"Maintenance queries" },
+"--",
+{ "file":"demo.swinb",			  "title":"A very simple notebook" }
 ]
