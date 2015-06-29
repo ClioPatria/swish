@@ -3,7 +3,7 @@
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@cs.vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (C): 2014, VU University Amsterdam
+    Copyright (C): 2014-2015, VU University Amsterdam
 
     This program is free software; you can redistribute it and/or
     modify it under the terms of the GNU General Public License
@@ -44,6 +44,7 @@
 :- use_module(library(swish/examples)).
 :- use_module(library(swish/help)).
 :- use_module(library(swish/highlight)).
+:- use_module(library(swish/markdown)).
 :- use_module(library(swish/render)).
 :- use_module(library(swish/template_hint)).
 
@@ -63,7 +64,7 @@ user:file_search_path(render, library(swish/render)).
 
 :- multifile
 	swish_config:config/2,
-	swish_config:source_alias/1.
+	swish_config:source_alias/2.
 
 %%	swish_config:config(?Config, ?Value) is nondet.
 %
@@ -83,11 +84,29 @@ user:file_search_path(render, library(swish/render)).
 %	  - csv_formats
 %	  [P] CSV output formats offered. For example, ClioPatria
 %	  defines this as [rdf,prolog]. The first element is default.
+%        - public_access
+%        If lib/authenticate.pl is loaded and this flag is `true`,
+%        _all_ access to SWISH demands authentication.  If false,
+%        only running queries and saving files is restricted. Note
+%        that this flag has no effect if no authentication module is
+%        loaded.
 
 swish_config:config(show_beware,    false).
 swish_config:config(tabled_results, true).
 swish_config:config(application,    swish).
 swish_config:config(csv_formats,    [rdf, prolog]).
+swish_config:config(public_access,  true).
+
+%%     swish_config:source_alias(Alias, Options) is nondet.
+%
+%      Specify access for files below a given _alias_. Options define
+%
+%        - access(Access)
+%        One of `read` or `both`.  Default is `read`.
+%        - if(Condition)
+%        Provide additional conditions.  Defined conditions are:
+%          - loaded
+%          Only provide access to the file if it is loaded.
 
 
 		 /*******************************
@@ -135,4 +154,5 @@ pengines:prepare_module(Module, swish, _Options) :-
 % rendering libraries
 
 :- use_module(library(swish/render/table), []).
-:- use_module(library(swish/render/rdf), []).
+:- use_module(library(swish/render/rdf),   []).
+:- use_module(library(swish/render/c3),	   []).

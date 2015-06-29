@@ -4,14 +4,15 @@ FONTDIR=web/bower_components/bootstrap/dist/fonts
 DIRS=lib/swish lib/swish/render web/icons web/help client $(FONTDIR)
 SWISHLIB=storage.pl page.pl help.pl examples.pl config.pl gitty.pl \
 	 highlight.pl render.pl template_hint.pl search.pl form.pl \
-	 include.pl csv.pl logging.pl trace.pl
-RENDER=table.pl
+	 include.pl csv.pl logging.pl trace.pl markdown.pl
+RENDER=table.pl c3.pl
 LIBS=	$(addprefix lib/swish/, $(SWISHLIB)) \
 	$(addprefix lib/swish/render/, $(RENDER))
 JS=web/js/swish-min.js web/js/swish-min.js.gz web/js/require.js
 CSS=web/css/swish-min.css web/css/swish-min.css.gz
 ICON_FILES=owl_25_years.png dead.png error.png running.gif page-fold-20.png \
-	   COMMIT_logo.png Synerscope-logo.png VU-logo.png
+	   COMMIT_logo.png Synerscope-logo.png VU-logo.png pl.png swinb.png \
+	   select.png
 ICONS=$(addprefix web/icons/, $(ICON_FILES))
 HELP=$(addprefix web/help/, $(notdir $(wildcard src/web/help/*.html)))
 FONTFILES=glyphicons-halflings-regular.ttf \
