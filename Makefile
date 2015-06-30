@@ -16,7 +16,9 @@ ICON_FILES=owl_25_years.png dead.png error.png running.gif page-fold-20.png \
 ICONS=$(addprefix web/icons/, $(ICON_FILES))
 HELP=$(addprefix web/help/, $(notdir $(wildcard src/web/help/*.html)))
 FONTFILES=glyphicons-halflings-regular.ttf \
-	  glyphicons-halflings-regular.woff
+	  glyphicons-halflings-regular.eot \
+	  glyphicons-halflings-regular.woff \
+	  glyphicons-halflings-regular.woff2
 FONTS=$(addprefix $(FONTDIR)/, $(FONTFILES))
 CLIENTFILES=swish-ask.sh README.md sin-table.html
 CLIENTS=$(addprefix client/, $(CLIENTFILES))
