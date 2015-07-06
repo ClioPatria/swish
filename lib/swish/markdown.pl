@@ -37,7 +37,10 @@
 		     ])).
 :- use_module(library(pldoc/doc_wiki)).
 :- use_module(library(option)).
+:- use_module(library(filesex)).
+
 :- use_module(storage).
+:- use_module(config).
 
 /** <module> SWISH Notebook markdown support
 
@@ -98,19 +101,27 @@ prolog:doc_autolink_extension(swinb, notebook).
 %
 %	  ```
 %	  - [My first book](mybook.swinb)
+%	  - [Label](store.pl)
+%	  - [Label](library/lists.pl)
 %	  ```
 
 file(File, Options) -->
-	{ file_name_extension(_Base, swinb, File),
-	  option(label(Label), Options)
+	{ once(sub_atom(File, Pre, _, _Post, /)),
+	  sub_atom(File, 0, Pre, _, Alias),
+	  swish_config:source_alias(Alias, _Options),
+	  option(label(Label), Options),
+	  http_location_by_id(swish, Swish),
+	  directory_file_path(Swish, File, HREF)
 	}, !,
-	html(a([class(swinb), href(File)], Label)).
+	html(a([class([alias,file]), href(HREF)], Label)).
 file(File, Options) -->
-	{ file_name_extension(_Base, pl, File),
-	  storage_file(File),
-	  option(label(Label), Options)
+	{ storage_file(File),
+	  option(label(Label), Options),
+	  http_location_by_id(swish, Swish),
+	  directory_file_path(Swish, p, StoreDir),
+	  directory_file_path(StoreDir, File, HREF)
 	}, !,
-	html(a([class(store), href(File)], Label)).
+	html(a([class(store), href(HREF)], Label)).
 file(File, Options) -->
 	pldoc_html:file(File, Options).
 

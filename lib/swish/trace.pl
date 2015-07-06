@@ -34,6 +34,7 @@
 :- use_module(library(settings)).
 :- use_module(library(pengines)).
 :- use_module(library(apply)).
+:- use_module(library(lists)).
 :- use_module(library(option)).
 :- use_module(library(solution_sequences)).
 :- use_module(library(edinburgh), [debug/0]).
@@ -43,6 +44,8 @@
 :- use_module(library(prolog_breakpoints)).
 :- use_module(library(http/term_html)).
 :- use_module(library(http/html_write)).
+
+:- use_module(storage).
 
 :- if(current_setting(swish:debug_info)).
 :- set_setting(swish:debug_info, true).
@@ -80,10 +83,11 @@ user:prolog_trace_interception(Port, Frame, _CHP, Action) :-
 	debug(trace, '[~d] ~w: Goal ~p', [Depth0, Port, Goal]),
 	term_html(Goal, GoalString),
 	functor(Port, PortName, _),
-	Prompt0 = _{type:  trace,
-		    port:  PortName,
-		    depth: Depth,
-		    goal:  GoalString
+	Prompt0 = _{type:    trace,
+		    port:    PortName,
+		    depth:   Depth,
+		    goal:    GoalString,
+		    pengine: Pengine
 		   },
 	add_context(Port, Frame, Prompt0, Prompt1),
 	add_source(Port, Frame, Prompt1, Prompt),
@@ -284,8 +288,15 @@ frame_file(Frame, File) :-
 	clause(QGoal, _Body, ClauseRef), !,
 	clause_property(ClauseRef, file(File)).
 
+%%	pengine_file(+File) is semidet.
+%
+%	True if File is a Pengine controlled file. This is currently the
+%	main file (pengine://) and (swish://) for included files.
+
 pengine_file(File) :-
-	sub_atom(File, 0, _, _, 'pengine://').
+	sub_atom(File, 0, _, _, 'pengine://'), !.
+pengine_file(File) :-
+	sub_atom(File, 0, _, _, 'swish://').
 
 %%	clause_position(+PC) is semidet.
 %
@@ -324,9 +335,10 @@ subgoal_position(ClauseRef, Port, File, CharA, CharZ) :-
 	end_port(Port), !,
 	clause_end(ClauseRef, File, CharA, CharZ).
 subgoal_position(ClauseRef, PC, File, CharA, CharZ) :-
+	debug(trace(source), 'In clause ~p at ~p', [ClauseRef, PC]),
 	clause_info(ClauseRef, File, TPos, _),
 	(   '$clause_term_position'(ClauseRef, PC, List)
-	->  debug(gtrace(position), 'Term-position: for ref=~w at PC=~w: ~w',
+	->  debug(trace(source), 'Term-position: for ref=~w at PC=~w: ~w',
 		  [ClauseRef, PC, List]),
 	    (   find_subgoal(List, TPos, PosTerm)
 	    ->  true
@@ -413,22 +425,44 @@ find_source(Predicate, File, Line) :-
 %
 %	Handle the breakpoints(List) option to  set breakpoints prior to
 %	execution of the query. If breakpoints  are present and enabled,
-%	the goal is executed in debug mode.
+%	the goal is executed in debug mode.  `List` is a list, holding a
+%	dict for each source that  has   breakpoints.  The dict contains
+%	these keys:
+%
+%	  - `file` is the source file.  For the current Pengine source
+%	    this is =|pengine://<pengine>/src|=.
+%	  - `breakpoints` is a list of lines (integers) where to put
+%	    break points.
 
 :- multifile pengines:prepare_goal/3.
 
 pengines:prepare_goal(Goal0, Goal, Options) :-
 	option(breakpoints(Breakpoints), Options),
 	Breakpoints \== [],
-	maplist(set_breakpoint, Breakpoints),
-	Goal = (debug, Goal0).
-
-set_breakpoint(Line) :-
-	debug(trace(break), 'Set breakpoint at line ~p', [Line]),
 	pengine_self(Pengine),
 	pengine_property(Pengine, source(File, Text)),
+	maplist(set_file_breakpoints(Pengine, File, Text), Breakpoints),
+	Goal = (debug, Goal0).
+
+set_file_breakpoints(_Pengine, PFile, Text, Dict) :-
+	debug(trace(break), 'Set breakpoints at ~p', [Dict]),
+	_{file:FileS, breakpoints:List} :< Dict,
+	atom_string(File, FileS),
+	(   PFile == File
+	->  debug(trace(break), 'Pengine main source', []),
+	    maplist(set_pengine_breakpoint(File, File, Text), List)
+	;   source_file_property(PFile, includes(File, _Time)),
+	    atom_concat('swish://', StoreFile, File)
+	->  debug(trace(break), 'Pengine included source ~p', [StoreFile]),
+	    storage_file(StoreFile, IncludedText, _Meta),
+	    maplist(set_pengine_breakpoint(PFile, File, IncludedText), List)
+	;   debug(trace(break), 'Not in included source', [])
+	).
+
+set_pengine_breakpoint(Owner, File, Text, Line) :-
+	debug(trace(break), 'Try break at ~q:~d', [File, Line]),
 	line_start(Line, Text, Char),
-	(   set_breakpoint(File, Line, Char, Break)
+	(   set_breakpoint(Owner, File, Line, Char, Break)
 	->  !, debug(trace(break), 'Created breakpoint ~p', [Break])
 	;   print_message(warning, breakpoint(failed(File, Line, 0)))
 	).
@@ -438,44 +472,80 @@ line_start(N, Text, Start) :-
 	N0 is N - 2,
 	offset(N0, sub_string(Text, Start, _, _, '\n')), !.
 
-%%	current_breakpoints(-Pairs) is det.
-%
-%	@arg Pairs is a list `Id-Line` for each defined breakpoint.
-
-current_breakpoints(Pairs) :-
-	pengine_self(Pengine),
-	findall(Id-Line,
-		( pengine_property(Pengine, source(File, _Text)),
-		  breakpoint_property(Id, file(File)),
-		  breakpoint_property(Id, line_count(Line))
-		),
-		Pairs).
-
 %%	update_breakpoints(+Breakpoints)
+%
+%	Update the active breakpoint  by  comparing   with  the  set  of
+%	currently active breakpoints.
 
 update_breakpoints(Breakpoints) :-
-	current_breakpoints(Pairs),
-	debug(trace(break), 'Current: ~p, Request: ~p', [Pairs, Breakpoints]),
-	forall((member(Id-Line, Pairs), \+memberchk(Line, Breakpoints)),
+	breakpoint_by_file(Breakpoints, NewBPS),
+	pengine_self(Pengine),
+	pengine_property(Pengine, source(PFile, Text)),
+	current_pengine_source_breakpoints(PFile, ByFile),
+	forall(( member(File-FBPS, ByFile),
+		 member(Id-Line, FBPS),
+		 \+ ( member(File-NFBPS, NewBPS),
+		      member(Line, NFBPS))),
 	       delete_breakpoint(Id)),
-	forall((member(Line, Breakpoints), \+memberchk(_-Line, Pairs)),
-	       set_breakpoint(Line)).
+	forall(( member(File-NFBPS, NewBPS),
+		 member(Line, NFBPS),
+		 \+ ( member(File-FBPS, ByFile),
+		      member(_-Line, FBPS))),
+	       add_breakpoint(PFile, File, Text, Line)).
+
+breakpoint_by_file(Breakpoints, NewBPS) :-
+	maplist(bp_by_file, Breakpoints, NewBPS).
+
+bp_by_file(Dict, File-Lines) :-
+	_{file:FileS, breakpoints:Lines} :< Dict,
+	atom_string(File, FileS).
+
+add_breakpoint(PFile, PFile, Text, Line) :- !,
+	set_pengine_breakpoint(PFile, PFile, Text, Line).
+add_breakpoint(PFile, File, _Text, Line) :-
+	atom_concat('swish://', Store, File), !,
+	storage_file(Store, Text, _Meta),
+	set_pengine_breakpoint(PFile, File, Text, Line).
+add_breakpoint(_, _, _, _Line).			% not in our files.
+
+%%	current_pengine_source_breakpoints(+PengineFile, -Pairs) is det.
+%
+%	Find the currently set breakpoints  for   the  Pengine  with the
+%	given source file PengineFile. Pairs is a list File-BreakPoints,
+%	where BreakPoints is a list of breakpoint-ID - Line pairs.
+
+current_pengine_source_breakpoints(PFile, ByFile) :-
+	findall(Pair, current_pengine_breakpoint(PFile, Pair), Pairs0),
+	keysort(Pairs0, Pairs),
+	group_pairs_by_key(Pairs, ByFile).
+
+current_pengine_breakpoint(PFile, PFile-(Id-Line)) :-
+	breakpoint_property(Id, file(PFile)),
+	breakpoint_property(Id, line_count(Line)).
+current_pengine_breakpoint(PFile, File-(Id-Line)) :-
+	source_file_property(PFile, includes(File, _Time)),
+	breakpoint_property(Id, file(File)),
+	breakpoint_property(Id, line_count(Line)).
 
 
 %%	prolog_clause:open_source(+File, -Stream) is semidet.
 %
-%	Open the saved pengine source if applicable
+%	Open SWISH non-file sources.
 
 :- multifile prolog_clause:open_source/2.
 
 prolog_clause:open_source(File, Stream) :-
-	pengine_file(File), !,
+	sub_atom(File, 0, _, _, 'pengine://'), !,
 	(   pengine_self(Pengine)
 	->  true
 	;   debugging(trace(_))
 	),
 	pengine_property(Pengine, source(File, Source)),
 	open_string(Source, Stream).
+prolog_clause:open_source(File, Stream) :-
+	atom_concat('swish://', GittyFile, File), !,
+	storage_file(GittyFile, Data, _Meta),
+	open_string(Data, Stream).
 
 
 		 /*******************************
