@@ -5,7 +5,7 @@ DIRS=lib/swish lib/swish/render web/icons web/help client $(FONTDIR)
 SWISHLIB=storage.pl page.pl help.pl examples.pl config.pl gitty.pl \
 	 highlight.pl render.pl template_hint.pl search.pl form.pl \
 	 include.pl csv.pl logging.pl trace.pl markdown.pl
-RENDER=table.pl c3.pl
+RENDER=table.pl graphviz.pl c3.pl
 LIBS=	$(addprefix lib/swish/, $(SWISHLIB)) \
 	$(addprefix lib/swish/render/, $(RENDER))
 JS=web/js/swish-min.js web/js/swish-min.js.gz web/js/require.js
