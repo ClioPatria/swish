@@ -112,22 +112,26 @@ swish_reply(SwishOptions, Request) :-
 		   background(_, [optional(true)]),
 		   examples(_,   [optional(true)]),
 		   q(_,          [optional(true)]),
-		   format(_,     [oneof([swish,raw]), default(swish)])
+		   format(_,     [oneof([swish,raw,json]), default(swish)])
 		 ],
 	http_parameters(Request, Params),
 	params_options(Params, Options0),
 	merge_options(Options0, SwishOptions, Options1),
 	source_option(Request, Options1, Options2),
-	swish_reply1(Options2).
+	option(format(Format), Options2),
+	swish_reply2(Format, Options2).
 
-swish_reply1(Options) :-
-	option(code(Code), Options),
-	option(format(raw), Options), !,
+swish_reply2(raw, Options) :-
+	option(code(Code), Options), !,
 	format('Content-type: text/x-prolog~n~n'),
 	format('~s', [Code]).
-swish_reply1(Options) :-
+swish_reply2(json, Options) :-
+	option(code(Code), Options), !,
+	option(meta(Meta), Options, _{}),
+	reply_json_dict(json{data:Code, meta:Meta}).
+swish_reply2(_, Options) :-
 	swish_config:reply_page(Options), !.
-swish_reply1(Options) :-
+swish_reply2(_, Options) :-
 	reply_html_page(
 	    swish(main),
 	    [ title('SWISH -- SWI-Prolog for SHaring'),
@@ -207,13 +211,45 @@ path_info_file(PathInfo, Path, Options) :-
 	confirm_access(Path, AliasOptions), !,
 	option(alias(Alias), Options, _).
 
-source_data(Path, Code, [title(Title), type(Ext)]) :-
+source_data(Path, Code, [title(Title), type(Ext), meta(Meta)]) :-
 	setup_call_cleanup(
 	    open(Path, read, In, [encoding(utf8)]),
 	    read_string(In, _, Code),
 	    close(In)),
+	source_metadata(Path, Code, Meta),
 	file_base_name(Path, File),
 	file_name_extension(Title, Ext, File).
+
+%%	source_metadata(+Path, +Code, -Meta:dict) is det.
+%
+%	Obtain meta information about a local  source file. Defined meta
+%	info is:
+%
+%	  - last_modified:Time
+%	  Last modified stamp of the file.  Always present.
+%	  - loaded:true
+%	  Present of the file is a loaded source file
+%	  - modified_since_loaded:true
+%	  Present if the file loaded, has been edited, but not
+%	  yet reloaded.
+
+source_metadata(Path, Code, Meta) :-
+	findall(Name-Value, source_metadata(Path, Code, Name, Value), Pairs),
+	dict_pairs(Meta, meta, Pairs).
+
+source_metadata(Path, _Code, path, Path).
+source_metadata(Path, _Code, last_modified, Modified) :-
+	time_file(Path, Modified).
+source_metadata(Path, _Code, loaded, true) :-
+	source_file(Path).
+source_metadata(Path, _Code, modified_since_loaded, true) :-
+	source_file_property(Path, modified(ModifiedWhenLoaded)),
+	time_file(Path, Modified),
+	ModifiedWhenLoaded \== Modified.
+source_metadata(Path, _Code, module, Module) :-
+	file_name_extension(_, Ext, Path),
+	prolog_file_type(Ext, prolog),
+	xref_public_list(Path, _, [module(Module)]).
 
 confirm_access(Path, Options) :-
 	option(if(Condition), Options), !,
@@ -359,16 +395,19 @@ swish_config_hash -->
 %	  - file(+File)
 %	  If present and code(String) is present, also associate the
 %	  editor with the given file.  See storage.pl.
+%	  - url(+URL)
+%	  as file(File), but used if the data is loaded from an
+%	  alias/file path.
+%	  - title(+Title)
+%	  Defines the title used for the tab.
 
 source(pl, Options) -->
 	{ option(code(Spec), Options), !,
 	  download_source(Spec, Source, Options),
-	  phrase(source_data_attrs(Options), Extra),
-	  source_meta_data(MetaAttrs, Options)
+	  phrase(source_data_attrs(Options), Extra)
 	},
 	html(div([ class(['prolog-editor']),
 		   'data-label'('Program')
-		 | MetaAttrs
 		 ],
 		 [ textarea([ class([source,prolog]),
 			      style('display:none')
@@ -381,7 +420,8 @@ source(_, _) --> [].
 source_data_attrs(Options) -->
 	(source_file_data(Options) -> [] ; []),
 	(source_url_data(Options) -> [] ; []),
-	(source_title_data(Options) -> [] ; []).
+	(source_title_data(Options) -> [] ; []),
+	(source_meta_data(Options) -> [] ; []).
 
 source_file_data(Options) -->
 	{ option(file(File), Options) },
@@ -392,18 +432,17 @@ source_url_data(Options) -->
 source_title_data(Options) -->
 	{ option(title(File), Options) },
 	['data-title'(File)].
+source_meta_data(Options) -->
+	{ option(meta(Meta), Options), !,
+	  atom_json_dict(Text, Meta, [])
+	},
+	['data-meta'(Text)].
 
-
-%%	source_meta_data(-Extra, +Options)
+%%	background(+Options)//
 %
-%	Dump the meta-data of the provided file into swish.meta_data.
-%	@tbd: serialize and add
-
-source_meta_data(['data-meta'(Text)], Options) :-
-	option(file(_), Options),
-	option(meta(Meta), Options), !,
-	atom_json_dict(Text, Meta, []).
-source_meta_data([], _).
+%	Associate  the  background  program  (if  any).  The  background
+%	program is not displayed in  the  editor,   but  is  sent to the
+%	pengine for execution.
 
 background(Options) -->
 	{ option(background(Spec), Options), !,
@@ -443,12 +482,10 @@ query(_) --> [].
 notebooks(swinb, Options) -->
 	{ option(code(Spec), Options),
 	  download_source(Spec, NoteBookText, Options),
-	  phrase(source_data_attrs(Options), Extra),
-	  source_meta_data(MetaAttrs, Options)
+	  phrase(source_data_attrs(Options), Extra)
 	},
 	html(div([ class('notebook'),
 		   'data-label'('Notebook')		% Use file?
-		 | MetaAttrs
 		 ],
 		 [ pre([ class('notebook-data'),
 			 style('display:none')
