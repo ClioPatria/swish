@@ -4,7 +4,8 @@ FONTDIR=web/bower_components/bootstrap/dist/fonts
 DIRS=lib/swish lib/swish/render web/icons web/help client $(FONTDIR)
 SWISHLIB=storage.pl page.pl help.pl examples.pl config.pl gitty.pl \
 	 highlight.pl render.pl template_hint.pl search.pl form.pl \
-	 include.pl csv.pl logging.pl trace.pl markdown.pl
+	 include.pl csv.pl logging.pl trace.pl markdown.pl \
+	 gitty_driver_files.pl gitty_driver_bdb.pl gitty_tools.pl
 RENDER=table.pl graphviz.pl c3.pl
 LIBS=	$(addprefix lib/swish/, $(SWISHLIB)) \
 	$(addprefix lib/swish/render/, $(RENDER))
