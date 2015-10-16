@@ -11,7 +11,7 @@ A consequence of this is that prefixes cannot be defined if SWISH operates in an
 The currently known prefixes are easily enumerated:
 </div>
 
-<div data-chunk="100" data-tabled="true" class="nb-cell query">
+<div class="nb-cell query" data-chunk="100" data-tabled="true">
 rdf_current_prefix(Prefix, IRI).
 </div>
 
@@ -22,7 +22,7 @@ Prefix abbreviations can be inserted into arguments of the RDF API that expect a
 and not a Prolog _variable_.
 </div>
 
-<div data-tabled="true" class="nb-cell query">
+<div class="nb-cell query" data-tabled="true">
 rdf(P, rdf:type, foaf:'Person').
 </div>
 
@@ -97,7 +97,7 @@ rdf_global_id/2, which can both be used to create an atomic resource and to spli
 one into the prefix and local name.  Note the rendering of `Resource` as an abbreviated link and the rendering of `Term` as an ordinary Prolog term.
 </div>
 
-<div class="nb-cell query">
+<div class="nb-cell query" data-tabled="true">
 Term = foaf:'Person', rdf_global_id(Term, Resource).
 </div>
 

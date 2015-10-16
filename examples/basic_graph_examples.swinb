@@ -10,19 +10,19 @@ The core predicates of the RDF library are rdf/3 and rdf/4, using the signature 
 
 If you run the query below by pressing the *play* button SWISH generates a table.  The solutions are _rendered_ using the RDF renderer, which renders
 
-  - *resources* in abbreviated form, trying to show the _prefix_, followed
+  - *Resources* in abbreviated form, trying to show the _prefix_, followed
   by a label.  The label is formed from `rdfs:label`, `skos:prefLabel`,
   etc., eventually using the _local name_.  By *hovering over the top-left
   corner* of the result, the raw Prolog form can be requested, which
   is a Prolog atom representing the full IRI.
-  - *literals* are represented in their _Turtle_ representation.  Again,
+  - *Literals* are represented in their _Turtle_ representation.  Again,
   by hovering and selecting _Prolog term_, you can view the actual
   representation.
 
 Clicking a resource will open the ClioPatria _Local View_ on the resource.
 </div>
 
-<div data-tabled="true" class="nb-cell query">
+<div class="nb-cell query" data-tabled="true">
 rdf(S, P, O).
 </div>
 
@@ -31,11 +31,11 @@ The rdf/3 and rdf/4 relations are _pure_, i.e., they behave completely logically
 `rdf:type` triples, we can use the query below.  The _RDF_ prefix is defined using rdf_register_prefix/2, and therefore we can also abbreviate the query:
 </div>
 
-<div data-tabled="true" class="nb-cell query">
+<div class="nb-cell query" data-tabled="true">
 rdf(S, 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type', O).
 </div>
 
-<div data-tabled="true" class="nb-cell query">
+<div class="nb-cell query" data-tabled="true">
 rdf(S, rdf:type, O).
 </div>
 
@@ -54,7 +54,7 @@ turn it into an _atom_; identifiers that start with a capital letter are
 Prolog _variables_.
 </div>
 
-<div data-tabled="true" class="nb-cell query">
+<div class="nb-cell query" data-tabled="true">
 rdf(S, rdf:type, C),
 rdf(C, rdfs:subClassOf, foaf:'Agent').
 </div>
@@ -72,7 +72,7 @@ foaf_agent_of_type(Agent, Type) :-
 	rdf(Type, rdfs:subClassOf, foaf:'Agent').
 </div>
 
-<div data-tabled="true" class="nb-cell query">
+<div class="nb-cell query" data-tabled="true">
 foaf_agent_of_type(Agent, Type).
 </div>
 

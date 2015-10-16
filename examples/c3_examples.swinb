@@ -19,7 +19,11 @@ Below we show how the C3 renderer can be used to create a diagram on the distrib
 </div>
 
 <div class="nb-cell query">
-findall([Graph,Count], rdf_statistics(triples_by_graph(Graph,Count)), _Pairs),
+findall(Graph-Count, 	
+        limit(10, 
+              order_by([desc(Count)],
+                       rdf_statistics(triples_by_graph(Graph,Count)))),
+        _Pairs),
 Chart = c3{data:_{columns:_Pairs, type:pie}}.
 </div>
 
