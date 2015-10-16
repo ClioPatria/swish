@@ -1,6 +1,7 @@
 // list of examples, represented as a JSON list
 
 [
-{ "file":"rdf_examples.swinb",		  "title":"RDF Examples" },
-"--"
+{ "file":"rdf_examples.swinb",		  "title":"RDF queries" },
+{ "file":"render_c3.swinb",		  "title":"C3 chart rendering" },
+{ "file":"render_graphviz.swinb",	  "title":"Graphviz graph rendering" }
 ]

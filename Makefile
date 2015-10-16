@@ -23,8 +23,11 @@ FONTFILES=glyphicons-halflings-regular.ttf \
 FONTS=$(addprefix $(FONTDIR)/, $(FONTFILES))
 CLIENTFILES=swish-ask.sh README.md sin-table.html
 CLIENTS=$(addprefix client/, $(CLIENTFILES))
+EXAMPLESFILES=render_c3.swinb render_graphviz.swinb
+EXAMPLES=$(addprefix examples/, $(EXAMPLESFILES))
 
-all:	$(DIRS) $(LIBS) $(JS) $(CSS) $(ICONS) $(HELP) $(FONTS) $(CLIENTS)
+all:	$(DIRS) $(LIBS) $(JS) $(CSS) $(ICONS) $(HELP) $(FONTS) $(CLIENTS) \
+	$(EXAMPLES)
 
 $(DIRS):
 	mkdir -p $@
@@ -51,6 +54,9 @@ web/icons/%: src/web/icons/%
 	rsync -u $< $@
 
 web/help/%: src/web/help/%
+	rsync -u $< $@
+
+examples/%: src/examples/%
 	rsync -u $< $@
 
 $(FONTDIR)/%: src/$(FONTDIR)/%
