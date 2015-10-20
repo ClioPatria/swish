@@ -94,12 +94,14 @@ stat_field_value(_, String, Number) :-
 
 :- if(current_predicate(sysconf/1)).
 term_expansion(clockticks(sysconf), Expansion) :-
-	(   call(sysconf(clk_tck(TicksPerSec)))
+	(   Sysconf = sysconf(clk_tck(TicksPerSec)),
+	    call(Sysconf)
 	->  Expansion = clockticks(TicksPerSec)
 	;   Expansion = clockticks(100)
 	).
 term_expansion(pagesize(sysconf), Expansion) :-
-	(   call(sysconf(pagesize(Bytes)))
+	(   Sysconf = sysconf(pagesize(Bytes)),
+	    call(Sysconf)
 	->  Expansion = pagesize(Bytes)
 	;   Expansion = pagesize(4096)
 	).
