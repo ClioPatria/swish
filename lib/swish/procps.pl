@@ -93,6 +93,8 @@ stat_field_value(_, String, Number) :-
 	number_string(Number, String).
 
 :- if(current_predicate(sysconf/1)).
+% the weird way to call sysconf confuses ClioPatria's cpack code
+% analysis enough to accept this ...
 term_expansion(clockticks(sysconf), Expansion) :-
 	(   member(Sysconf, [sysconf(clk_tck(TicksPerSec))]),
 	    call(Sysconf)

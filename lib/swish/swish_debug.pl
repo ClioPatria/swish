@@ -28,7 +28,8 @@
 */
 
 :- module(swish_debug,
-	  [ pengine_stale_module/1,	% -Module
+	  [ pengine_stale_module/1,	% -Module, -State
+	    pengine_stale_module/2,	% -Module, -State
 	    swish_statistics/1,		% -Statistics
 	    start_swish_stat_collector/0,
 	    swish_stats/2		% ?Period, ?Dicts
@@ -38,13 +39,18 @@
 :- use_module(library(lists)).
 :- use_module(library(apply)).
 :- use_module(library(debug)).
+:- use_module(library(aggregate)).
 :- use_module(procps).
 :- use_module(highlight).
+:- if(exists_source(library(mallocinfo))).
+:- use_module(library(mallocinfo)).
+:- endif.
 
-%%	pengine_stale_module(-M) is nondet.
+%%	pengine_stale_module(-M, -State) is nondet.
 %
 %	True if M seems to  be  a   pengine  module  with  no associated
-%	pengine.
+%	pengine. State is a dict that describes   what we know about the
+%	module.
 
 pengine_stale_module(M) :-
 	current_module(M),
@@ -52,10 +58,37 @@ pengine_stale_module(M) :-
 	\+ live_module(M),
 	\+ current_highlight_state(M, _).
 
+pengine_stale_module(M, State) :-
+	pengine_stale_module(M),
+	stale_module_state(M, State).
+
 live_module(M) :-
 	pengine_property(Pengine, module(M)),
 	pengine_property(Pengine, thread(Thread)),
 	catch(thread_property(Thread, status(running)), _, fail).
+
+stale_module_state(M, State) :-
+	findall(N-V, stale_module_property(M, N, V), Properties),
+	dict_create(State, stale, Properties).
+
+stale_module_property(M, pengine, Pengine) :-
+	pengine_property(Pengine, module(M)).
+stale_module_property(M, pengine_queue, Queue) :-
+	pengine_property(Pengine, module(M)),
+	pengines:pengine_queue(Pengine, Queue, _TimeOut, _Time).
+stale_module_property(M, pengine_pending_queue, Queue) :-
+	pengine_property(Pengine, module(M)),
+	pengines:output_queue(Pengine, Queue, _Time).
+stale_module_property(M, thread, Thread) :-
+	pengine_property(Pengine, module(M)),
+	pengine_property(Pengine, thread(Thread)).
+stale_module_property(M, thread_status, Status) :-
+	pengine_property(Pengine, module(M)),
+	pengine_property(Pengine, thread(Thread)),
+	catch(thread_property(Thread, status(Status)), _, fail).
+stale_module_property(M, program_space, Space) :-
+	module_property(M, program_space(Space)).
+
 
 %%	swish_statistics(?State)
 %
@@ -64,7 +97,9 @@ live_module(M) :-
 swish_statistics(highlight_states(Count)) :-
 	aggregate_all(count, current_highlight_state(_,_), Count).
 swish_statistics(pengines(Count)) :-
-	aggregate_all(count, pengine_property(_,self(_)), Count).
+	aggregate_all(count, pengine_property(_,thread(_)), Count).
+swish_statistics(remote_pengines(Count)) :-
+	aggregate_all(count, pengine_property(_,remote(_)), Count).
 swish_statistics(pengines_created(Count)) :-
 	(   flag(pengines_created, Old, Old)
 	->  Count = Old
@@ -100,8 +135,13 @@ uuid_code(_, X) :- char_type(X, xdigit(_)).
 		 *	     STATISTICS		*
 		 *******************************/
 
+:- if(current_predicate(http_unix_daemon:http_daemon/0)).
+:- use_module(library(broadcast)).
+:- listen(http(post_server_start), start_swish_stat_collector).
+:- else.
 :- initialization
 	start_swish_stat_collector.
+:- endif.
 
 %%	start_swish_stat_collector
 %
@@ -142,7 +182,7 @@ swish_stat_collector(Thread, Dims, Interval) :-
 %	  Number of running pengines
 %	  * pengines_created
 %	  Total number of pengines created
-%	  * d_pengines
+%	  * d_pengines_created
 %	  Pengines created per second
 %	  * rss
 %	  Total resident memory
@@ -210,19 +250,31 @@ reply_stats_request(Client-get_stats(Period), SlidingStat) :-
 
 swish_stats(stats{ cpu:CPU,
 		   rss:RSS,
+		   fordblks:Fordblks,
 		   stack:Stack,
 		   pengines:Pengines,
-		   pengines_created:PenginesCreated
+		   pengines_created:PenginesCreated,
+		   time:Time
 		 }) :-
+	get_time(Now),
+	Time is floor(Now),
 	statistics(process_cputime, PCPU),
 	statistics(cputime, MyCPU),
 	CPU is PCPU-MyCPU,
 	statistics(stack, Stack),
+	fordblks(Fordblks),
 	catch(procps_stat(Stat), _,
 	      Stat = stat{rss:0}),
 	RSS = Stat.rss,
 	swish_statistics(pengines(Pengines)),
 	swish_statistics(pengines_created(PenginesCreated)).
+
+:- if(current_predicate(mallinfo/1)).
+fordblks(Fordblks) :-
+	mallinfo(MallInfo),
+	Fordblks = MallInfo.fordblks.
+:- endif.
+
 
 /* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 Maintain sliding statistics. The statistics are maintained in a ring. If
@@ -305,7 +357,6 @@ avg_key(Dicts, Len, Key, Key-Avg) :-
 	sandbox:safe_primitive/1.
 
 sandbox:safe_primitive(swish_debug:pengine_stale_module(_)).
+sandbox:safe_primitive(swish_debug:pengine_stale_module(_,_)).
 sandbox:safe_primitive(swish_debug:swish_statistics(_)).
 sandbox:safe_primitive(swish_debug:swish_stats(_, _)).
-
-
