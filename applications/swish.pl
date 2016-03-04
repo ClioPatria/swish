@@ -150,6 +150,9 @@ pengines:prepare_module(Module, swish, _Options) :-
 
 :- use_module(library(clpfd), []).
 :- use_module(library(clpb), []).
+:- if(exists_source(library(semweb/rdf11))).
+:- use_module(library(semweb/rdf11), []).
+:- endif.
 
 % rendering libraries
 
