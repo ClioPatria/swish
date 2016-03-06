@@ -42,6 +42,7 @@
 :- use_module(library(swish/include)).
 :- use_module(library(swish/csv)).
 :- use_module(library(swish/examples)).
+:- use_module(library(swish/profiles)).
 :- use_module(library(swish/help)).
 :- use_module(library(swish/highlight)).
 :- use_module(library(swish/markdown)).
