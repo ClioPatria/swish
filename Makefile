@@ -4,7 +4,7 @@ FONTDIR=web/bower_components/bootstrap/dist/fonts
 DIRS=lib/swish lib/swish/render web/icons web/help client $(FONTDIR)
 SWISHLIB=storage.pl page.pl help.pl examples.pl config.pl gitty.pl \
 	 highlight.pl render.pl template_hint.pl search.pl form.pl \
-	 include.pl csv.pl logging.pl trace.pl markdown.pl \
+	 include.pl swish_csv.pl logging.pl trace.pl markdown.pl \
 	 gitty_driver_files.pl gitty_driver_bdb.pl gitty_tools.pl \
 	 swish_debug.pl profiles.pl procps.pl
 RENDER=table.pl graphviz.pl c3.pl
@@ -38,7 +38,9 @@ lib/swish/%: src/lib/%
 client/%: src/client/%
 	rsync -u $< $@
 client/swish-ask.sh: src/client/swish-ask.sh
-	sed -e 's/:3050}/:3020}/' -e 's/-prolog}/-rdf}/' $< > $@
+	sed -e 's/:3050}/:3020}/' -e 's/-prolog}/-rdf}/' \
+	    -e 's/chunk=[0-9]*/chunk=100000000/' \
+	    -e '/solutions=all/d' $< > $@
 	chmod +x $@
 
 web/js/swish-min.js: src/web/js/swish-min.js
