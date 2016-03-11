@@ -40,7 +40,7 @@
 :- use_module(library(swish/page), []).
 :- use_module(library(swish/storage)).
 :- use_module(library(swish/include)).
-:- use_module(library(swish/csv)).
+:- use_module(library(swish/swish_csv)).
 :- use_module(library(swish/examples)).
 :- use_module(library(swish/profiles)).
 :- use_module(library(swish/help)).
@@ -114,7 +114,8 @@ swish_config:config(public_access,  true).
 		 *	        CSV		*
 		 *******************************/
 
-:- multifile swish_csv:write_answers/2.
+:- multifile
+	swish_csv:write_answers/2.
 
 swish_csv:write_answers(Answers, VarTerm) :-
         Answers = [H|_],
@@ -123,6 +124,7 @@ swish_csv:write_answers(Answers, VarTerm) :-
             current_output,
             select(VarTerm, Answers),
             []).
+
 
 
                  /*******************************
