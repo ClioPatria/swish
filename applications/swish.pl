@@ -31,6 +31,7 @@
 	  [
 	  ]).
 :- use_module(library(pengines)).
+:- use_module(library(option)).
 :- use_module(library(http/http_dispatch)).
 :- use_module(library(http/http_server_files)).
 :- use_module(library(http/http_json)).
@@ -115,7 +116,8 @@ swish_config:config(public_access,  true).
 		 *******************************/
 
 :- multifile
-	swish_csv:write_answers/2.
+	swish_csv:write_answers/2,
+	swish_csv:write_answers/3.
 
 swish_csv:write_answers(Answers, VarTerm) :-
         Answers = [H|_],
@@ -125,6 +127,32 @@ swish_csv:write_answers(Answers, VarTerm) :-
             select(VarTerm, Answers),
             []).
 
+swish_csv:write_answers(Answers, VarTerm, Options) :-
+        Answers = [H|_],
+        functor(H, rdf, _),
+	option(page(1), Options), !,
+        sparql_write_csv_result(
+            current_output,
+            select(VarTerm, Answers),
+            [ bnode_state(_-BNodes)
+	    ]),
+	nb_setval(rdf_csv_bnodes, BNodes).
+swish_csv:write_answers(Answers, VarTerm, Options) :-
+        Answers = [H|_],
+        functor(H, rdf, _),
+	option(page(Page), Options),
+	Page > 1, !,
+	nb_getval(rdf_csv_bnodes, BNodes0),
+        sparql_write_csv_result(
+            current_output,
+            select(VarTerm, Answers),
+            [ http_header(false),
+	      header_row(false),
+	      bnode_state(BNodes0-BNodes)
+	    ]),
+	nb_setval(rdf_csv_bnodes, BNodes).
+swish_csv:write_answers(Answers, VarTerm, _Options) :-
+	swish_csv:write_answers(Answers, VarTerm).
 
 
                  /*******************************
