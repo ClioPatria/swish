@@ -38,9 +38,7 @@ lib/swish/%: src/lib/%
 client/%: src/client/%
 	rsync -u $< $@
 client/swish-ask.sh: src/client/swish-ask.sh
-	sed -e 's/:3050}/:3020}/' -e 's/-prolog}/-rdf}/' \
-	    -e 's/chunk=[0-9]*/chunk=100000000/' \
-	    -e '/solutions=all/d' $< > $@
+	sed -e 's/:3050}/:3020}/' -e 's/-prolog}/-rdf}/' $< > $@
 	chmod +x $@
 
 web/js/swish-min.js: src/web/js/swish-min.js
