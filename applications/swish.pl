@@ -143,6 +143,7 @@ swish_csv:write_answers(Answers, VarTerm) :-
 :- use_module(swish:library(semweb/rdfs)).
 :- use_module(swish:library(semweb/rdf_optimise)).
 :- use_module(swish:library(semweb/rdf_litindex)).
+:- use_module(swish:library(solution_sequences)).
 :- use_module(swish:library(aggregate)).
 pengines:prepare_module(Module, swish, _Options) :-
 	pengines_io:pengine_bind_io_to_html(Module).
