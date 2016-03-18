@@ -47,15 +47,17 @@ Render RDF data.
 %	Renders Term as a uri.  Furt
 
 term_rendering(Term, _Vars, Options) -->
-	{ is_rdf(Term)
+	{ ground(Term),
+	  is_rdf(Term)
 	}, !,
 	rdf_link(Term, [target('cliopatria-localview')|Options]).
 
 is_rdf(Term) :-
 	is_uri(Term), !.
 is_rdf(literal(Value)) :-
-	ground(Value),
 	is_literal(Value).
+is_rdf(^^(_,Type)) :- atom(Type).
+is_rdf(@(_,Lang)) :- atom(Lang).
 
 is_uri(Term) :-
 	atom(Term),
