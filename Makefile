@@ -1,7 +1,10 @@
 # Create a ClioPatria SWISH package from the SWISH distribution.
 
 FONTDIR=web/bower_components/bootstrap/dist/fonts
-DIRS=lib/swish lib/swish/render web/icons web/help client $(FONTDIR)
+DIRS=lib/swish lib/swish/render web/icons web/help client $(FONTDIR) \
+     web/bower_components/codemirror/mode/htmlmixed \
+     web/bower_components/codemirror/mode/css \
+     web/bower_components/codemirror/mode/javascript
 SWISHLIB=storage.pl page.pl help.pl examples.pl config.pl gitty.pl \
 	 highlight.pl render.pl template_hint.pl search.pl form.pl \
 	 include.pl swish_csv.pl logging.pl trace.pl markdown.pl \
@@ -26,9 +29,13 @@ CLIENTFILES=swish-ask.sh README.md sin-table.html
 CLIENTS=$(addprefix client/, $(CLIENTFILES))
 EXAMPLESFILES=render_c3.swinb render_graphviz.swinb
 EXAMPLES=$(addprefix examples/, $(EXAMPLESFILES))
+CMFILES=mode/htmlmixed/htmlmixed.js \
+	mode/javascript/javascript.js \
+	mode/css/css.js
+CM=$(addprefix web/bower_components/codemirror/, $(CMFILES))
 
 all:	$(DIRS) $(LIBS) $(JS) $(CSS) $(ICONS) $(HELP) $(FONTS) $(CLIENTS) \
-	$(EXAMPLES)
+	$(CM) $(EXAMPLES)
 
 $(DIRS):
 	mkdir -p $@
@@ -61,6 +68,9 @@ examples/%: src/examples/%
 	rsync -u $< $@
 
 $(FONTDIR)/%: src/$(FONTDIR)/%
+	rsync -u $< $@
+
+web/bower_components/codemirror/%: src/web/bower_components/codemirror/%
 	rsync -u $< $@
 
 clean::
