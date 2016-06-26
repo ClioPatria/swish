@@ -23,6 +23,10 @@ user:file_search_path(example,	 examples).
 :- use_module(library(swish/cp_authenticate)).
 % Enable logging of SWISH queries and sources if HTTP logging is enabled
 :- use_module(library(swish/logging)).
+% Make side-effect-free RDF predicates safe
+:- if(exists_source(library(semweb/rdf_sandbox))).
+:- use_module(library(semweb/rdf_sandbox)).
+:- endif.
 
 % Allows users to extend the Examples menu by ticking the Example
 % checkbox.
