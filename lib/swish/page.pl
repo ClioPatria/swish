@@ -60,7 +60,6 @@
 
 :- use_module(config).
 :- use_module(help).
-:- use_module(form).
 :- use_module(search).
 
 /** <module> Provide the SWISH application as Prolog HTML component
@@ -104,7 +103,7 @@ swish_reply(Options, Request) :-
 
 swish_reply2(Options, Request) :-
 	option(method(Method), Request),
-	Method \== get, !,
+	Method \== get, Method \== head, !,
 	swish_rest_reply(Method, Request, Options).
 swish_reply2(_, Request) :-
 	serve_resource(Request), !.
@@ -251,7 +250,7 @@ source_metadata(Path, _Code, modified_since_loaded, true) :-
 	ModifiedWhenLoaded \== Modified.
 source_metadata(Path, _Code, module, Module) :-
 	file_name_extension(_, Ext, Path),
-	prolog_file_type(Ext, prolog),
+	user:prolog_file_type(Ext, prolog),
 	xref_public_list(Path, _, [module(Module)]).
 
 confirm_access(Path, Options) :-
