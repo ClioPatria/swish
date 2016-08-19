@@ -27,6 +27,13 @@ user:file_search_path(example,	 examples).
 :- if(exists_source(library(semweb/rdf_sandbox))).
 :- use_module(library(semweb/rdf_sandbox)).
 :- endif.
+% Make the R interface available.
+% make sure Rserve runs in a good sandbox or only allow for
+% authenticated access.  See https://github.com/JanWielemaker/rserve-sandbox
+:- if(exists_source(library(r/r_call))).
+:- use_module(user:library(swish/r_swish)).
+:- use_module(library(r/r_sandbox)).
+:- endif.
 
 % Allows users to extend the Examples menu by ticking the Example
 % checkbox.

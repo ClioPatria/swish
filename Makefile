@@ -9,7 +9,7 @@ SWISHLIB=storage.pl page.pl help.pl examples.pl config.pl gitty.pl \
 	 highlight.pl render.pl template_hint.pl search.pl form.pl \
 	 include.pl swish_csv.pl logging.pl trace.pl markdown.pl \
 	 gitty_driver_files.pl gitty_driver_bdb.pl gitty_tools.pl \
-	 swish_debug.pl profiles.pl procps.pl
+	 swish_debug.pl profiles.pl procps.pl download.pl r_swish.pl
 RENDER=table.pl graphviz.pl c3.pl
 LIBS=	$(addprefix lib/swish/, $(SWISHLIB)) \
 	$(addprefix lib/swish/render/, $(RENDER))
@@ -29,7 +29,7 @@ CLIENTFILES=swish-ask.sh README.md sin-table.html
 CLIENTS=$(addprefix client/, $(CLIENTFILES))
 EXAMPLESFILES=render_c3.swinb render_graphviz.swinb htmlcell.swinb \
 	      rendering.swinb jquery.swinb stats.swinb \
-	      swish_tutorials.swinb
+	      swish_tutorials.swinb Rserve.swinb Rdataframe.swinb Rdownload.swinb
 EXAMPLES=$(addprefix examples/, $(EXAMPLESFILES))
 CMFILES=mode/htmlmixed/htmlmixed.js \
 	mode/javascript/javascript.js \
