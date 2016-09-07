@@ -39,6 +39,10 @@ user:file_search_path(example,	 examples).
 % checkbox.
 swish_config:config(community_examples, true).
 
+% Uncomment this to make Captitalised words _atoms_.  Variables must
+% be written as _var.  Requires SWI-Prolog 7.3.27.
+%:- set_prolog_flag(swish:var_prefix, true).
+
 %%      cliopatria:menu_item(-Item, -Label) is nondet.
 %
 %       Add SWISH to the Query menu.
