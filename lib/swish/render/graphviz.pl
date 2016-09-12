@@ -39,7 +39,9 @@
 :- use_module(library(process)).
 :- use_module(library(sgml)).
 :- use_module(library(debug)).
+:- use_module(library(error)).
 :- use_module(library(option)).
+:- use_module(library(lists)).
 :- use_module(library(dcg/basics)).
 :- use_module('../render').
 
@@ -456,13 +458,27 @@ attribute_list([H|T], O) -->
 	;   ",", attribute_list(T, O)
 	).
 
-attribute(Name=Value, _O) -->
+attribute(Var, _) -->
+	{ var(Var),
+	  instantiation_error(Var)
+	}.
+attribute(html(Value), O) --> !,
+	attribute(label=html(Value), O).
+attribute(Name=html(Value), _, List, Tail) :-
+	atomic(Value), !,
+	format(codes(List,Tail), '~w=<~w>', [Name, Value]).
+attribute(Name=html(Term), _, List, Tail) :- !,
+	phrase(html(Term), Tokens0),
+	delete(Tokens0, nl(_), Tokens),
+	with_output_to(string(HTML), print_html(Tokens)),
+	format(codes(List,Tail), '~w=<~w>', [Name, HTML]).
+attribute(Name=Value, _O) --> !,
 	atom(Name),"=",value(Name, Value).
-attribute(html(Value), _, List, Tail) :- !,
-	format(codes(List,Tail), 'label=<~w>', [Value]).
 attribute(NameValue, _O)  -->
 	{NameValue =.. [Name,Value]}, !,
 	atom(Name),"=",value(Name, Value).
+attribute(NameValue, _O)  -->
+	{ domain_error(graphviz_attribute, NameValue) }.
 
 value(Name, Value) -->
 	{ string_attribute(Name), !,
@@ -506,12 +522,18 @@ This code is copied from ClioPatria, rdf_graphviz.pl
 - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
 string_attribute(label).
+string_attribute(xlabel).
+string_attribute(tooltip).
+string_attribute(headtooltip).
+string_attribute(tailtooltip).
+string_attribute(labeltooltip).
 string_attribute(url).
 string_attribute(href).
 string_attribute(id).
 string_attribute('URL').
 string_attribute(fillcolor).
 string_attribute(fontcolor).
+string_attribute(color).
 string_attribute(fontname).
 string_attribute(style).
 string_attribute(size).
