@@ -30,7 +30,9 @@ CLIENTFILES=swish-ask.sh README.md sin-table.html
 CLIENTS=$(addprefix client/, $(CLIENTFILES))
 EXAMPLESFILES=render_c3.swinb render_graphviz.swinb htmlcell.swinb \
 	      rendering.swinb jquery.swinb stats.swinb \
-	      swish_tutorials.swinb Rserve.swinb Rdataframe.swinb Rdownload.swinb
+	      swish_tutorials.swinb \
+	      Rserve.swinb Rdataframe.swinb Rdownload.swinb \
+	      iris.swinb
 EXAMPLES=$(addprefix examples/, $(EXAMPLESFILES))
 CMFILES=mode/htmlmixed/htmlmixed.js \
 	mode/javascript/javascript.js \
