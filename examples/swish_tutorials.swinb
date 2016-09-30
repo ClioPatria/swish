@@ -26,4 +26,10 @@ The notebooks below explain the basics of using R from SWISH.  You can test whet
 &lt;- 'R.Version'().
 </div>
 
+<div class="nb-cell markdown">
+### More elaborate examples
+
+  - [EM Clustering of the Iris Dataset](example/iris.swinb)
+</div>
+
 </div>
