@@ -51,6 +51,7 @@
 
 :- use_module(page).
 :- use_module(gitty).
+:- use_module(patch).
 :- use_module(config).
 :- use_module(search).
 
@@ -163,20 +164,58 @@ storage(put, Request) :-
 	->  gitty_data(Dir, File, Data, _OldMeta)
 	;   option(data(Data), Dict, "")
 	),
-	meta_data(Request, Dict, Meta),
+	meta_data(Request, Dir, Dict, Meta),
 	storage_url(File, URL),
-	gitty_update(Dir, File, Data, Meta, Commit),
-	debug(storage, 'Updated: ~p', [Commit]),
-	reply_json_dict(json{url:URL,
-			     file:File,
-			     meta:Commit.put(symbolic, "HEAD")
-			    }).
+	catch(gitty_update(Dir, File, Data, Meta, Commit),
+	      Error,
+	      true),
+	(   var(Error)
+	->  debug(storage, 'Updated: ~p', [Commit]),
+	    reply_json_dict(json{url:URL,
+				 file:File,
+				 meta:Commit.put(symbolic, "HEAD")
+			    })
+	;   update_error(Error, Dir, Data, File, URL)
+	).
 storage(delete, Request) :-
 	authentity(Request, Meta),
 	setting(directory, Dir),
 	request_file(Request, Dir, File),
 	gitty_update(Dir, File, "", Meta, _New),
 	reply_json_dict(true).
+
+%%	update_error(+Error, +Storage, +Data, +File, +URL)
+%
+%	If error signals an edit conflict, prepare an HTTP =|409
+%	Conflict|= page
+
+update_error(error(gitty(commit_version(_, Head, Previous)), _),
+	     Dir, Data, File, URL) :- !,
+	gitty_diff(Dir, Previous, Head, OtherEdit),
+	gitty_diff(Dir, Previous, data(Data), MyEdits),
+	Status0 = json{url:URL,
+		       file:File,
+		       error:edit_conflict,
+		       edit:_{server:OtherEdit,
+			      me:MyEdits}
+		      },
+	(   OtherDiff = OtherEdit.get(data)
+	->  PatchOptions = [status(_), stderr(_)],
+	    patch(Data, OtherDiff, Merged, PatchOptions),
+	    Status1 = Status0.put(merged, Merged),
+	    foldl(patch_status, PatchOptions, Status1, Status)
+	;   Status = Status0
+	),
+	reply_json_dict(Status, [ status(409) ]).
+update_error(Error, _Dir, _Data, _File, _URL) :-
+	throw(Error).
+
+patch_status(status(exit(0)), Dict, Dict) :- !.
+patch_status(status(exit(Status)), Dict, Dict.put(patch_status, Status)) :- !.
+patch_status(status(killed(Signal)), Dict, Dict.put(patch_killed, Signal)) :- !.
+patch_status(stderr(""), Dict, Dict) :- !.
+patch_status(stderr(Errors), Dict, Dict.put(patch_errors, Errors)) :- !.
+
 
 request_file(Request, Dir, File) :-
 	option(path_info(File), Request),
@@ -189,7 +228,7 @@ storage_url(File, HREF) :-
 	http_link_to_id(web_storage, path_postfix(File), HREF).
 
 %%	meta_data(+Request, +Dict, -Meta) is det.
-%%	meta_data(+Request, Store, +Dict, -Meta) is det.
+%%	meta_data(+Request, +Store, +Dict, -Meta) is det.
 %
 %	Gather meta-data from the  Request   (user,  peer)  and provided
 %	meta-data. Illegal and unknown values are ignored.
