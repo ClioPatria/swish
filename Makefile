@@ -11,7 +11,7 @@ SWISHLIB=storage.pl page.pl help.pl examples.pl config.pl gitty.pl \
 	 gitty_driver_files.pl gitty_driver_bdb.pl gitty_tools.pl \
 	 swish_debug.pl profiles.pl procps.pl download.pl r_swish.pl \
 	 patch.pl
-RENDER=table.pl graphviz.pl c3.pl
+RENDER=table.pl graphviz.pl c3.pl codes.pl swish.pl chess.pl sudoku.pl svgtree.pl
 LIBS=	$(addprefix lib/swish/, $(SWISHLIB)) \
 	$(addprefix lib/swish/render/, $(RENDER))
 JS=web/js/swish-min.js web/js/swish-min.js.gz web/js/require.js
