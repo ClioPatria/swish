@@ -10,7 +10,7 @@ SWISHLIB=storage.pl page.pl help.pl examples.pl config.pl gitty.pl \
 	 include.pl swish_csv.pl logging.pl trace.pl markdown.pl \
 	 gitty_driver_files.pl gitty_driver_bdb.pl gitty_tools.pl \
 	 swish_debug.pl profiles.pl procps.pl download.pl r_swish.pl \
-	 patch.pl
+	 patch.pl rgb.txt
 RENDER=table.pl graphviz.pl c3.pl codes.pl swish.pl chess.pl sudoku.pl svgtree.pl
 LIBS=	$(addprefix lib/swish/, $(SWISHLIB)) \
 	$(addprefix lib/swish/render/, $(RENDER))
