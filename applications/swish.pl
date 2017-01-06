@@ -199,3 +199,4 @@ pengines:prepare_module(Module, swish, _Options) :-
 :- use_module(library(swish/render/rdf),      []).
 :- use_module(library(swish/render/graphviz), []).
 :- use_module(library(swish/render/c3),	      []).
+:- use_module(library(swish/render/swish),    []).
