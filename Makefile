@@ -1,25 +1,37 @@
 # Create a ClioPatria SWISH package from the SWISH distribution.
 
 FONTDIR=web/bower_components/bootstrap/dist/fonts
-DIRS=lib/swish lib/swish/render web/icons web/help client $(FONTDIR) \
+PACKDIR=lib/swish/pack
+PACKS=profile
+DIRS=lib/swish lib/swish/render lib/swish/plugin $(PACKDIR) \
+     web/icons web/help client $(FONTDIR) \
      web/bower_components/codemirror/mode/htmlmixed \
      web/bower_components/codemirror/mode/css \
-     web/bower_components/codemirror/mode/javascript
+     web/bower_components/codemirror/mode/javascript \
+     $(addprefix $(PACKDIR)/, $(addsuffix /prolog, $(PACKS))) \
+     $(PACKDIR)/profile/prolog/profile/backend
 SWISHLIB=storage.pl page.pl help.pl examples.pl config.pl gitty.pl \
 	 highlight.pl render.pl template_hint.pl search.pl form.pl \
 	 include.pl swish_csv.pl logging.pl trace.pl markdown.pl \
 	 gitty_driver_files.pl gitty_driver_bdb.pl gitty_tools.pl \
 	 swish_debug.pl profiles.pl procps.pl download.pl r_swish.pl \
-	 patch.pl rgb.txt
+	 patch.pl chat.pl authenticate.pl pep.pl avatar.pl \
+	 noble_avatar.pl chatstore.pl paths.pl messages.pl \
+	 rgb.txt
 RENDER=table.pl graphviz.pl c3.pl codes.pl swish.pl chess.pl sudoku.pl svgtree.pl
+PLUGIN=email.pl
+PACKFILES0=profile/pack.pl profile/prolog/user_profile.pl \
+	   profile/prolog/profile/backend/profile_prolog.pl
+PACKFILES=$(addprefix $(PACKDIR)/, $(PACKFILES0))
 LIBS=	$(addprefix lib/swish/, $(SWISHLIB)) \
-	$(addprefix lib/swish/render/, $(RENDER))
+	$(addprefix lib/swish/render/, $(RENDER)) \
+	$(addprefix lib/swish/plugin/, $(PLUGIN))
 JS=web/js/swish-min.js web/js/swish-min.js.gz web/js/require.js
 CSS=web/css/swish-min.css web/css/swish-min.css.gz
 ICON_FILES=owl_25_years.png running.gif page-fold-20.png \
 	   COMMIT_logo.png Synerscope-logo.png VU-logo.png \
 	   vre4eic-logo.png cwi-logo.png \
-	   pl.png swinb.png
+	   pl.png swinb.png noble
 ICONS=$(addprefix web/icons/, $(ICON_FILES))
 HELP=$(addprefix web/help/, $(notdir $(wildcard src/web/help/*.html)))
 FONTFILES=glyphicons-halflings-regular.ttf \
@@ -41,7 +53,7 @@ CMFILES=mode/htmlmixed/htmlmixed.js \
 CM=$(addprefix web/bower_components/codemirror/, $(CMFILES))
 
 all:	$(DIRS) $(LIBS) $(JS) $(CSS) $(ICONS) $(HELP) $(FONTS) $(CLIENTS) \
-	$(CM) $(EXAMPLES)
+	$(CM) $(EXAMPLES) $(PACKFILES)
 
 $(DIRS):
 	mkdir -p $@
@@ -64,6 +76,9 @@ web/js/require.js: src/web/bower_components/requirejs/require.js
 web/css/%: src/web/css/%
 	rsync -u $< $@
 
+web/icons/noble: src/web/icons/noble
+	rsync -ua $</ $@
+
 web/icons/%: src/web/icons/%
 	rsync -u $< $@
 
@@ -74,6 +89,9 @@ examples/%: src/examples/%
 	rsync -u $< $@
 
 $(FONTDIR)/%: src/$(FONTDIR)/%
+	rsync -u $< $@
+
+$(PACKDIR)/%: src/pack/%
 	rsync -u $< $@
 
 web/bower_components/codemirror/%: src/web/bower_components/codemirror/%

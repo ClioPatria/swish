@@ -37,6 +37,26 @@
 :- use_module(library(http/http_json)).
 :- use_module(rdfql(sparql_csv_result)).
 
+		 /*******************************
+		 *	       PATHS		*
+		 *******************************/
+
+:- multifile
+        http:location/3,
+        user:file_search_path/2.
+
+http:location(swish, root(swish), []).
+
+user:file_search_path(render,     library(swish/render)).
+user:file_search_path(swish_pack, library(swish/pack)).
+
+
+		 /*******************************
+		 *            MODULES		*
+		 *******************************/
+
+:- use_module(library(swish/messages)).
+:- use_module(library(swish/paths)).
 :- use_module(library(swish/config)).
 :- use_module(library(swish/page), []).
 :- use_module(library(swish/storage)).
@@ -49,15 +69,7 @@
 :- use_module(library(swish/markdown)).
 :- use_module(library(swish/render)).
 :- use_module(library(swish/template_hint)).
-
-
-		 /*******************************
-		 *	       PATHS		*
-		 *******************************/
-
-http:location(swish, root(swish), []).
-
-user:file_search_path(render, library(swish/render)).
+:- use_module(library(swish/chat), []).
 
 
 		 /*******************************
@@ -95,8 +107,12 @@ user:file_search_path(render, library(swish/render)).
 %        - ping
 %        Ping pengine status every N seconds.  Updates sparkline
 %        chart with stack usage.
-%         - nb_eval_script
-%         Evaluate scripts in HTML cells of notebooks?
+%        - notebook
+%	 Dict holding options for notebooks.
+%        - nb_eval_script
+%        Evaluate scripts in HTML cells of notebooks?
+%	 - chat
+%	 Activate the chat interface
 
 swish_config:config(show_beware,    false).
 swish_config:config(tabled_results, true).
@@ -105,6 +121,7 @@ swish_config:config(csv_formats,    [rdf, prolog]).
 swish_config:config(public_access,  true).
 swish_config:config(ping,           10).
 swish_config:config(notebook,       _{eval_script: true}).
+swish_config:config(chat,	    true).
 
 %%     swish_config:source_alias(Alias, Options) is nondet.
 %
