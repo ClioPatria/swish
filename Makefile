@@ -2,7 +2,7 @@
 
 FONTDIR=web/bower_components/bootstrap/dist/fonts
 PACKDIR=lib/swish/pack
-PACKS=profile
+PACKS=profile smtp
 DIRS=lib/swish lib/swish/render lib/swish/plugin $(PACKDIR) \
      web/icons web/help client $(FONTDIR) \
      web/bower_components/codemirror/mode/htmlmixed \
@@ -15,13 +15,14 @@ SWISHLIB=storage.pl page.pl help.pl examples.pl config.pl gitty.pl \
 	 include.pl swish_csv.pl logging.pl trace.pl markdown.pl \
 	 gitty_driver_files.pl gitty_driver_bdb.pl gitty_tools.pl \
 	 swish_debug.pl profiles.pl procps.pl download.pl r_swish.pl \
-	 patch.pl chat.pl authenticate.pl pep.pl avatar.pl \
+	 patch.pl chat.pl authenticate.pl pep.pl avatar.pl bootstrap.pl \
 	 noble_avatar.pl chatstore.pl paths.pl messages.pl \
 	 rgb.txt
 RENDER=table.pl graphviz.pl c3.pl codes.pl swish.pl chess.pl sudoku.pl svgtree.pl
-PLUGIN=email.pl
+PLUGIN=email.pl profile.pl notify.pl login.pl
 PACKFILES0=profile/pack.pl profile/prolog/user_profile.pl \
-	   profile/prolog/profile/backend/profile_prolog.pl
+	   profile/prolog/profile/backend/profile_prolog.pl \
+	   smtp/pack.pl smtp/prolog/smtp.pl
 PACKFILES=$(addprefix $(PACKDIR)/, $(PACKFILES0))
 LIBS=	$(addprefix lib/swish/, $(SWISHLIB)) \
 	$(addprefix lib/swish/render/, $(RENDER)) \
