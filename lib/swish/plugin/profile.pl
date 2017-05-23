@@ -99,14 +99,17 @@ profile:
 
 :- http_handler(swish(user_profile),   user_profile,   [id(user_profile)]).
 :- http_handler(swish(save_profile),   save_profile,   []).
-:- http_handler(swish(update_profile), update_profile, []).
+:- http_handler(swish(update_profile), update_profile,   []).
 :- http_handler(swish(delete_profile), delete_profile, []).
 
 
 :- multifile
+    swish_config:user_info/3,
     swish_config:reply_logged_in/1,     % +Options
     swish_config:reply_logged_out/1,    % +Options
-    swish_config:user_profile/2.        % +Request, -Info
+    swish_config:user_profile/2,        % +Request, -Info
+    user_profile:attribute/3,
+    user_profile:attribute_mapping/3.
 
 
 		 /*******************************
