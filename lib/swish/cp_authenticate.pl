@@ -53,6 +53,8 @@ through pengine_user/1.
 */
 
 :- multifile
+    swish_config:reply_logged_in/1,
+    swish_config:reply_logged_out/1,
     swish_config:authenticate/2,
     swish_config:user_info/3.
 
