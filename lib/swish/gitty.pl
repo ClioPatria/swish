@@ -45,6 +45,7 @@
 	    gitty_hash/2,		% +Store, ?Hash
 
 	    gitty_reserved_meta/1,	% ?Key
+	    is_gitty_hash/1,		% @Term
 
 	    gitty_diff/4,		% +Store, ?Start, +End, -Diff
 
@@ -190,7 +191,8 @@ gitty_update(Store, Name, Data, Meta, CommitRet) :-
 	->  true
 	;   throw(error(gitty(commit_version(Name, OldHead, Meta.previous)), _))
 	),
-	load_plain_commit(Store, OldHead, OldMeta),
+	load_plain_commit(Store, OldHead, OldMeta0),
+	filter_identity(OldMeta0, OldMeta),
 	get_time(Now),
 	save_object(Store, Data, blob, Hash),
 	Commit = gitty{}.put(OldMeta)
@@ -207,6 +209,26 @@ gitty_update(Store, Name, Data, Meta, CommitRet) :-
 	      E,
 	      ( delete_object(Store, CommitHash),
 		throw(E))).
+
+%!	filter_identity(+Meta0, -Meta)
+%
+%	Remove identification information  from   the  previous  commit.
+%
+%	@tbd: the identity properties should not be hardcoded here.
+
+filter_identity(Meta0, Meta) :-
+	delete_keys([ author,user,avatar,identity,peer,
+		      external_identity, identity_provider, profile_id,
+		      commit_message
+		    ], Meta0, Meta).
+
+delete_keys([], Dict, Dict).
+delete_keys([H|T], Dict0, Dict) :-
+	del_dict(H, Dict0, _, Dict1), !,
+	delete_keys(T, Dict1, Dict).
+delete_keys([_|T], Dict0, Dict) :-
+	delete_keys(T, Dict0, Dict).
+
 
 %%	gitty_update_head(+Store, +Name, +OldCommit, +NewCommit) is det.
 %
@@ -400,6 +422,21 @@ gitty_reserved_meta(name).
 gitty_reserved_meta(time).
 gitty_reserved_meta(data).
 gitty_reserved_meta(previous).
+
+
+%%	is_gitty_hash(@Term) is semidet.
+%
+%	True if Term is a possible gitty (SHA1) hash
+
+is_gitty_hash(SHA1) :-
+	atom(SHA1),
+	atom_length(SHA1, 40),
+	atom_codes(SHA1, Codes),
+	maplist(hex_digit, Codes).
+
+hex_digit(C) :- between(0'0, 0'9, C), !.
+hex_digit(C) :- between(0'a, 0'f, C).
+
 
 		 /*******************************
 		 *	    FSCK SUPPORT	*

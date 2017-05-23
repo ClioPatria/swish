@@ -59,9 +59,11 @@ through pengine_user/1.
 swish_config:authenticate(_Request, User) :-
     logged_on(User).
 
-
 swish_config:user_info(_Request, local, Info) :-
     logged_on(User),
+    cp_user_info(User, Info).
+
+cp_user_info(User, Info) :-
     findall(Name-Value, cp_user_property(User, Name, Value), Pairs),
     dict_pairs(Info, u, Pairs).
 
@@ -87,3 +89,20 @@ cp_identity_property(Identity, Property) :-
     Property =.. [Name,Value],
     cp_user_property(User, Name, Value).
 
+
+		 /*******************************
+		 * LINK LOGIN/LOGOUT TO PROFILE *
+		 *******************************/
+
+:- listen(cliopatria(login(User, _Session)),
+          cp_logged_in(User)).
+:- listen(cliopatria(logout(User)),
+          cp_logged_out(User)).
+
+cp_logged_in(User) :-
+    cp_user_info(User, Info),
+    IdInfo = Info.put(_{identity_provider:local, external_identity:User}),
+    swish_config:reply_logged_in([user_info(IdInfo), reply(none)]).
+
+cp_logged_out(_User) :-
+    swish_config:reply_logged_out([reply(none)]).

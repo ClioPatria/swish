@@ -3,7 +3,7 @@
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (c)  2014-2016, VU University Amsterdam
+    Copyright (c)  2014-2017, VU University Amsterdam
     All rights reserved.
 
     Redistribution and use in source and binary forms, with or without
@@ -39,6 +39,9 @@
 	    swish_navbar//1,			% +Options
 	    swish_content//1,			% +Options
 
+	    pengine_logo//1,			% +Options
+	    swish_logo//1,			% +Options
+
 	    swish_resources//0,
 	    swish_js//0,
 	    swish_css//0
@@ -66,6 +69,9 @@
 :- use_module(config).
 :- use_module(help).
 :- use_module(search).
+:- use_module(chat).
+:- use_module(authenticate).
+:- use_module(pep).
 
 /** <module> Provide the SWISH application as Prolog HTML component
 
@@ -79,10 +85,10 @@ http:location(pldoc, swish(pldoc), [priority(100)]).
 :- http_handler(swish(.), swish_reply([]), [id(swish), prefix]).
 
 :- multifile
+	swish_config:logo//1,
 	swish_config:source_alias/2,
 	swish_config:reply_page/1,
-	swish_config:verify_write_access/3, % +Request, +File, +Options
-	swish_config:authenticate/2.	    % +Request, -User
+	swish_config:li_login_button//1.
 
 %%	swish_reply(+Options, +Request)
 %
@@ -99,12 +105,12 @@ http:location(pldoc, swish(pldoc), [priority(100)]).
 %	  of a line.
 %	  - q(Query)
 %	  Use Query as the initial query.
+%	  - show_beware(Boolean)
+%	  Control showing the _beware limited edition_ warning.
 
 swish_reply(Options, Request) :-
-	swish_config:authenticate(Request, User), !, % must throw to deny access
-	swish_reply2([user(User)|Options], Request).
-swish_reply(Options, Request) :-
-	swish_reply2(Options, Request).
+	authenticate(Request, Auth),
+	swish_reply2([identity(Auth)|Options], Request).
 
 swish_reply2(Options, Request) :-
 	option(method(Method), Request),
@@ -115,18 +121,20 @@ swish_reply2(_, Request) :-
 swish_reply2(Options, Request) :-
 	swish_reply_config(Request, Options), !.
 swish_reply2(SwishOptions, Request) :-
-	Params = [ code(_,	 [optional(true)]),
-		   background(_, [optional(true)]),
-		   examples(_,   [optional(true)]),
-		   q(_,          [optional(true)]),
-		   format(_,     [oneof([swish,raw,json]), default(swish)])
+	Params = [ code(_,	  [optional(true)]),
+		   show_beware(_, [optional(true)]),
+		   background(_,  [optional(true)]),
+		   examples(_,    [optional(true)]),
+		   q(_,           [optional(true)]),
+		   format(_,      [oneof([swish,raw,json]), default(swish)])
 		 ],
 	http_parameters(Request, Params),
 	params_options(Params, Options0),
 	merge_options(Options0, SwishOptions, Options1),
-	source_option(Request, Options1, Options2),
-	option(format(Format), Options2),
-	swish_reply3(Format, Options2).
+	add_show_beware(Options1, Options2),
+	source_option(Request, Options2, Options3),
+	option(format(Format), Options3),
+	swish_reply3(Format, Options3).
 
 swish_reply3(raw, Options) :-
 	option(code(Code), Options), !,
@@ -135,7 +143,8 @@ swish_reply3(raw, Options) :-
 swish_reply3(json, Options) :-
 	option(code(Code), Options), !,
 	option(meta(Meta), Options, _{}),
-	reply_json_dict(json{data:Code, meta:Meta}).
+	option(chat_count(Count), Options, 0),
+	reply_json_dict(json{data:Code, meta:Meta, chats:_{count:Count}}).
 swish_reply3(_, Options) :-
 	swish_config:reply_page(Options), !.
 swish_reply3(_, Options) :-
@@ -159,6 +168,31 @@ params_options([H0|T0], [H|T]) :-
 	params_options(T0, T).
 params_options([_|T0], T) :-
 	params_options(T0, T).
+
+%!	add_show_beware(+Options0, -Option) is det.
+%
+%	Add show_beware(false) when called with code, query or examples.
+%	These are dedicated calls that do not justify this message.
+
+add_show_beware(Options0, Options) :-
+	implicit_no_show_beware(Options0), !,
+	Options = [show_beware(false)|Options0].
+add_show_beware(Options, Options).
+
+implicit_no_show_beware(Options) :-
+	option(show_beware(_), Options), !,
+	fail.
+implicit_no_show_beware(Options) :-
+	\+ option(format(swish), Options), !,
+	fail.
+implicit_no_show_beware(Options) :-
+	option(code(_), Options).
+implicit_no_show_beware(Options) :-
+	option(q(_), Options).
+implicit_no_show_beware(Options) :-
+	option(examples(_), Options).
+implicit_no_show_beware(Options) :-
+	option(background(_), Options).
 
 
 %%	source_option(+Request, +Options0, -Options)
@@ -308,10 +342,19 @@ swish_navbar(Options) -->
 		   div([ class([collapse, 'navbar-collapse']),
 			 id(navbar)
 		       ],
-		       [ ul([class([nav, 'navbar-nav'])], []),
-			 \search_form(Options)
+		       [ ul([class([nav, 'navbar-nav', menubar])], []),
+			 ul([class([nav, 'navbar-nav', 'navbar-right'])],
+			    [ li(\notifications(Options)),
+			      li(\search_box(Options)),
+			      \li_login_button(Options)
+			    ])
 		       ])
 		 ])).
+
+li_login_button(Options) -->
+	swish_config:li_login_button(Options).
+li_login_button(_Options) -->
+	[].
 
 collapsed_button -->
 	html(button([type(button),
@@ -326,8 +369,23 @@ collapsed_button -->
 		    ])).
 
 swish_logos(Options) -->
+	swish_config:logo(Options), !.
+swish_logos(Options) -->
 	pengine_logo(Options),
 	swish_logo(Options).
+
+%!	swish_config:logo(+Options)// is semidet.
+%
+%	Hook  to  include  the  top-left    logos.   The  default  calls
+%	pengine_logo//1 and swish_logo//1.  The   implementation  should
+%	emit zero or more <a> elements.
+
+%!	pengine_logo(+Options)// is det.
+%!	swish_logo(+Options)// is det.
+%
+%	Emit an <a> element that provides a   link to Pengines and SWISH
+%	on this server. These may be called from swish_config:logo//1 to
+%	include the default logos.
 
 pengine_logo(_Options) -->
 	{ http_absolute_location(root(.), HREF, [])
@@ -338,14 +396,6 @@ swish_logo(_Options) -->
 	},
 	html(a([href(HREF), class('swish-logo')], &(nbsp))).
 
-%%	search_form(+Options)//
-%
-%	Add search box to the navigation bar
-
-search_form(Options) -->
-	html(div(class(['pull-right']),
-		 \search_box(Options))).
-
 
 %%	swish_content(+Options)//
 %
@@ -354,12 +404,15 @@ search_form(Options) -->
 %
 %	  - source(HREF)
 %	  Load initial source from HREF
+%	  - chat_count(Count)
+%	  Indicate the presense of Count chat messages
 
 swish_content(Options) -->
 	{ document_type(Type, Options)
 	},
 	swish_resources,
 	swish_config_hash(Options),
+	swish_options(Options),
 	html(div([id(content), class([container, swish])],
 		 [ div([class([tile, horizontal]), 'data-split'('50%')],
 		       [ div([ class([editors, tabbed])
@@ -390,6 +443,24 @@ swish_config_hash(Options) -->
 		   window.swish.config_hash = Hash;
 		   |}).
 
+
+%!	swish_options(+Options)//
+%
+%	Emit additional options. This is  similar   to  config,  but the
+%	config object is big and stable   for a particular SWISH server.
+%	The options are set per session.
+
+swish_options(Options) -->
+	{ option(show_beware(Show), Options),
+	  JSShow = @(Show)
+	}, !,
+	js_script({|javascript(JSShow)||
+		   window.swish = window.swish||{};
+		   window.swish.option = window.swish.options||{};
+		   window.swish.option.show_beware = JSShow;
+		   |}).
+swish_options(_Options) -->
+	[].
 
 %%	source(+Type, +Options)//
 %
@@ -429,7 +500,8 @@ source_data_attrs(Options) -->
 	(source_url_data(Options) -> [] ; []),
 	(source_title_data(Options) -> [] ; []),
 	(source_meta_data(Options) -> [] ; []),
-	(source_st_type_data(Options) -> [] ; []).
+	(source_st_type_data(Options) -> [] ; []),
+	(source_chat_data(Options) -> [] ; []).
 
 source_file_data(Options) -->
 	{ option(file(File), Options) },
@@ -448,6 +520,11 @@ source_meta_data(Options) -->
 	  atom_json_dict(Text, Meta, [])
 	},
 	['data-meta'(Text)].
+source_chat_data(Options) -->
+	{ option(chat_count(Count), Options),
+	  atom_json_term(JSON, _{count:Count}, [as(string)])
+	},
+	['data-chats'(JSON)].
 
 %%	background(+Options)//
 %
@@ -495,7 +572,7 @@ notebooks(swinb, Options) -->
 	  download_source(Spec, NoteBookText, Options),
 	  phrase(source_data_attrs(Options), Extra)
 	},
-	html(div([ class('notebook fullscreen'),
+	html(div([ class('notebook'),
 		   'data-label'('Notebook')		% Use file?
 		 ],
 		 [ pre([ class('notebook-data'),
@@ -651,8 +728,8 @@ swish_rest_reply(put, Request, Options) :-
 	source_file(Request, File, Options1), !,
 	option(content_type(String), Request),
 	http_parse_header_value(content_type, String, Type),
-	read_data(Type, Request, Data, _Meta),
-	verify_write_access(Request, File, Options1),
+	read_data(Type, Request, Data, Meta),
+	authorized(file(update(File,Meta)), Options1),
 	setup_call_cleanup(
 	    open(File, write, Out),
 	    format(Out, '~s', [Data]),
@@ -665,20 +742,3 @@ read_data(media(Type,_), Request, Data, Meta) :-
 	del_dict(data, Dict, Data, Meta).
 read_data(media(text/_,_), Request, Data, _{}) :-
 	http_read_data(Request, Data, [to(string)]).
-
-%%	swish_config:verify_write_access(+Request, +File, +Options) is
-%%	nondet.
-%
-%	Hook that verifies that the HTTP Request  may write to File. The
-%	hook must succeed to grant access. Failure   is  is mapped to an
-%	HTTP _403 Forbidden_ reply. The  hook   may  throw  another HTTP
-%	reply.  By default, the following options are passed:
-%
-%	  - alias(+Alias)
-%	    The swish_config:source_alias/2 Alias used to find File.
-
-verify_write_access(Request, File, Options) :-
-	swish_config:verify_write_access(Request, File, Options), !.
-verify_write_access(Request, _File, _Options) :-
-	option(path(Path), Request),
-	throw(http_reply(forbidden(Path))).
