@@ -27,7 +27,8 @@ PACKFILES=$(addprefix $(PACKDIR)/, $(PACKFILES0))
 LIBS=	$(addprefix lib/swish/, $(SWISHLIB)) \
 	$(addprefix lib/swish/render/, $(RENDER)) \
 	$(addprefix lib/swish/plugin/, $(PLUGIN))
-JS=web/js/swish-min.js web/js/swish-min.js.gz web/js/require.js
+JS=web/js/swish-min.js web/js/swish-min.js.gz web/js/require.js \
+   web/js/swish-min.js.map
 CSS=web/css/swish-min.css web/css/swish-min.css.gz
 ICON_FILES=owl_25_years.png running.gif page-fold-20.png \
 	   COMMIT_logo.png Synerscope-logo.png VU-logo.png \
@@ -71,6 +72,12 @@ web/js/swish-min.js: src/web/js/swish-min.js
 	rsync -u $< $@
 web/js/swish-min.js.gz: src/web/js/swish-min.js.gz
 	rsync -u $< $@
+web/js/swish-min.js.map::
+	@if [ -f src/web/js/swish-min.js.map ]; then \
+	  rsync -u src/web/js/swish-min.js.map $@; \
+	else \
+	  rm -f $@; \
+        fi
 web/js/require.js: src/web/bower_components/requirejs/require.js
 	rsync -u $< $@
 
