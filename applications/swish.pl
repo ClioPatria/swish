@@ -190,6 +190,9 @@ swish_csv:write_answers(Answers, VarTerm, _Options) :-
 :- use_rendering(swish:rdf).
 :- use_module(swish:library(swish/render)).
 :- use_module(swish:library(swish/trace)).
+:- use_module(swish:library(swish/projection)).
+:- use_module(swish:library(swish/jquery)).
+:- use_module(swish:library(swish/dashboard)).
 :- use_module(swish:library(pengines_io)).
 :- use_module(swish:library(semweb/rdf_db)).
 :- use_module(swish:library(semweb/rdfs)).
