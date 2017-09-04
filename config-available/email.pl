@@ -52,7 +52,7 @@ and notifications.
 % your spam box if Prolog reports no problems   but you do not receive a
 % message.
 :- set_setting_default(smtp:host,        '****').
-:- set_setting_default(smtp:port,        ****).
+:- set_setting_default(smtp:port,        25).
 :- set_setting_default(smtp:security,    ****).
 :- set_setting_default(smtp:from,        '****').
 :- set_setting_default(smtp:user,        '****').
