@@ -51,12 +51,18 @@ and notifications.
 % email_test(MyMailAddress) to verify that the   setup is correct. Watch
 % your spam box if Prolog reports no problems   but you do not receive a
 % message.
-:- set_setting_default(smtp:host,        '****').
-:- set_setting_default(smtp:port,        ****).
-:- set_setting_default(smtp:security,    ****).
-:- set_setting_default(smtp:from,        '****').
-:- set_setting_default(smtp:user,        '****').
-:- set_setting_default(smtp:password,    "****").
+%
+% The provided defaults suffice  for  Unix   machines  with  a  properly
+% configured local sendmail and DNS. Such  configurations are rare these
+% days, so you probably must edit this.
+:- set_setting_default(smtp:host,        localhost).
+:- set_setting_default(smtp:port,        25).
+:- set_setting_default(smtp:security,    none).
+:- gethostname(Host),
+   atom_concat('swish@', Host, Email),
+   set_setting_default(smtp:from,        Email).
+%:- set_setting_default(smtp:user,        '****').
+%:- set_setting_default(smtp:password,    "****").
 %:- set_setting_default(smtp:auth_method, default).
 %:- set_setting_default(smtp:hostname,    '').
 
