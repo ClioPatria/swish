@@ -9,7 +9,8 @@ DIRS=lib/swish lib/swish/render lib/swish/plugin $(PACKDIR) \
      web/bower_components/codemirror/mode/css \
      web/bower_components/codemirror/mode/javascript \
      $(addprefix $(PACKDIR)/, $(addsuffix /prolog, $(PACKS))) \
-     $(PACKDIR)/profile/prolog/profile/backend
+     $(PACKDIR)/profile/prolog/profile/backend \
+     config-available/gitty
 SWISHLIB=storage.pl page.pl help.pl examples.pl config.pl gitty.pl \
 	 highlight.pl render.pl template_hint.pl search.pl form.pl \
 	 include.pl swish_csv.pl logging.pl trace.pl markdown.pl \
@@ -20,6 +21,7 @@ SWISHLIB=storage.pl page.pl help.pl examples.pl config.pl gitty.pl \
 	 projection.pl jquery.pl rgb.txt
 RENDER=table.pl graphviz.pl c3.pl codes.pl swish.pl chess.pl sudoku.pl svgtree.pl
 PLUGIN=email.pl profile.pl notify.pl login.pl
+GITTY=config-available/gitty/Hangout.swinb
 PACKFILES0=profile/pack.pl profile/prolog/user_profile.pl \
 	   profile/prolog/profile/backend/profile_prolog.pl \
 	   smtp/pack.pl smtp/prolog/smtp.pl
@@ -55,7 +57,7 @@ CMFILES=mode/htmlmixed/htmlmixed.js \
 CM=$(addprefix web/bower_components/codemirror/, $(CMFILES))
 
 all:	$(DIRS) $(LIBS) $(JS) $(CSS) $(ICONS) $(HELP) $(FONTS) $(CLIENTS) \
-	$(CM) $(EXAMPLES) $(PACKFILES)
+	$(CM) $(EXAMPLES) $(PACKFILES) $(GITTY)
 
 $(DIRS):
 	mkdir -p $@
@@ -103,6 +105,9 @@ $(PACKDIR)/%: src/pack/%
 	rsync -u $< $@
 
 web/bower_components/codemirror/%: src/web/bower_components/codemirror/%
+	rsync -u $< $@
+
+config-available/%: src/config-available/%
 	rsync -u $< $@
 
 clean::
