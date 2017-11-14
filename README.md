@@ -7,7 +7,7 @@ interface to ClioPatria, providing:
   - Ask RDF queries about our data
   - Make example programs available about your data
   - Save an example program and share it with anyone on the web
-  - Collaborate on a program using [TogetheJS](https://togetherjs.com/)
+  - Collaborate on a program using [TogetherJS](https://togetherjs.com/)
   - Manage a server remotely from the Prolog shell (requires login with
     `admin` rigths).
 
