@@ -36,6 +36,7 @@
 	  [ term_rendering//3			% +Term, +Vars, +Options
 	  ]).
 :- use_module(library(http/html_write)).
+:- use_module(library(http/http_dispatch)).
 :- use_module('../render').
 :- use_module('../storage').
 
@@ -54,9 +55,10 @@ term_rendering(File, _Vars, _Options) -->
 	{ atom(File),
 	  file_name_extension(_, Ext, File),
 	  swish_extension(Ext),
-	  storage_file(File)
+	  storage_file(File),
+	  http_link_to_id(web_storage, path_postfix(File), HREF)
 	},
-	html(a([class(store),href('/p/'+File)], File)).
+	html(a([class(store),href(HREF)], File)).
 
 swish_extension(pl).
 swish_extension(swinb).
