@@ -3,7 +3,7 @@
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (c)  2014-2015, VU University Amsterdam
+    Copyright (c)  2014-2018, VU University Amsterdam
     All rights reserved.
 
     Redistribution and use in source and binary forms, with or without
@@ -35,14 +35,20 @@
 :- module(gitty,
 	  [ gitty_open/2,		% +Store, +Options
 	    gitty_close/1,		% +Store
+	    gitty_driver/2,		% +Store, -Driver
 
 	    gitty_file/3,		% +Store, ?Name, ?Hash
+	    gitty_file/4,		% +Store, ?Name, ?Ext, ?Hash
 	    gitty_create/5,		% +Store, +Name, +Data, +Meta, -Commit
 	    gitty_update/5,		% +Store, +Name, +Data, +Meta, -Commit
 	    gitty_commit/3,		% +Store, +Name, -Meta
 	    gitty_data/4,		% +Store, +Name, -Data, -Meta
 	    gitty_history/4,		% +Store, +Name, -History, +Options
 	    gitty_hash/2,		% +Store, ?Hash
+
+	    gitty_fsck/1,		% +Store
+	    gitty_save/4,		% +Store, +Data, +Type, -Hash
+	    gitty_load/4,		% +Store, +Hash, -Data, -Type
 
 	    gitty_reserved_meta/1,	% ?Key
 	    is_gitty_hash/1,		% @Term
@@ -140,6 +146,14 @@ store_driver_module(Store, Module) :-
 	atom(Store), !,
 	gitty_store_type(Store, Module).
 
+%!	gitty_driver(+Store, -Driver)
+%
+%	Get the current gitty driver
+
+gitty_driver(Store, Driver) :-
+	store_driver_module(Store, Module),
+	driver_module(Driver, Module), !.
+
 %%	gitty_close(+Store) is det.
 %
 %	Close access to the Store.
@@ -148,14 +162,17 @@ gitty_close(Store) :-
 	store_driver_module(Store, M),
 	M:gitty_close(Store).
 
-%%	gitty_file(+Store, ?File, ?Head) is nondet.
+%%	gitty_file(+Store, ?Head, ?Hash) is nondet.
+%%	gitty_file(+Store, ?Head, ?Ext, ?Hash) is nondet.
 %
-%	True when File entry in the  gitty   store  and Head is the HEAD
-%	revision.
+%	True when Hash is an entry in the gitty Store and Head is the
+%	HEAD revision.
 
 gitty_file(Store, Head, Hash) :-
+	gitty_file(Store, Head, _Ext, Hash).
+gitty_file(Store, Head, Ext, Hash) :-
 	store_driver_module(Store, M),
-	M:gitty_file(Store, Head, Hash).
+	M:gitty_file(Store, Head, Ext, Hash).
 
 %%	gitty_create(+Store, +Name, +Data, +Meta, -Commit) is det.
 %
@@ -373,18 +390,41 @@ size_in_bytes(Data, Size) :-
 	    close(Out)).
 
 
+%!	gitty_fsck(+Store) is det.
+%
+%	Check the integrity of store.
+
+gitty_fsck(Store) :-
+	forall(gitty_hash(Store, Hash),
+	       fsck_object_msg(Store, Hash)),
+	store_driver_module(Store, M),
+	M:gitty_fsck(Store).
+
+fsck_object_msg(Store, Hash) :-
+	fsck_object(Store, Hash), !.
+fsck_object_msg(Store, Hash) :-
+	print_message(error, gitty(Store, fsck(bad_object(Hash)))).
+
 %%	fsck_object(+Store, +Hash) is semidet.
 %
 %	Test the integrity of object Hash in Store.
 
-:- public fsck_object/2.
+:- public
+	fsck_object/2,
+	check_object/4.
+
 fsck_object(Store, Hash) :-
 	load_object(Store, Hash, Data, Type, Size),
+	check_object(Hash, Data, Type, Size).
+
+check_object(Hash, Data, Type, Size) :-
 	format(string(Hdr), '~w ~d\u0000', [Type, Size]),
 	sha_new_ctx(Ctx0, []),
 	sha_hash_ctx(Ctx0, Hdr, Ctx1, _),
 	sha_hash_ctx(Ctx1, Data, _, HashBin),
 	hash_atom(HashBin, Hash).
+
+
 
 
 %%	load_object(+Store, +Hash, -Data) is det.
@@ -397,6 +437,20 @@ load_object(Store, Hash, Data) :-
 load_object(Store, Hash, Data, Type, Size) :-
 	store_driver_module(Store, Module),
 	Module:load_object(Store, Hash, Data, Type, Size).
+
+%!	gitty_save(+Store, +Data, +Type, -Hash) is det.
+%!	gitty_load(+Store, +Hash, -Data, -Type) is det.
+%
+%	Low level objects store. These predicate   allows  for using the
+%	store as an arbitrary content store.
+%
+%	@arg Data is a string
+%	@arg Type is an atom denoting the object type.
+
+gitty_save(Store, Data, Type, Hash) :-
+	save_object(Store, Data, Type, Hash).
+gitty_load(Store, Hash, Data, Type) :-
+	load_object(Store, Hash, Data, Type, _Size).
 
 %%	gitty_hash(+Store, ?Hash) is nondet.
 %
@@ -538,19 +592,33 @@ meta_tag_set(_, []).
 
 :- if(true).
 
+% Note that cleanup on possible errors is   rather hard. The created tmp
+% stream must be closed and the file must  be deleted. We also close the
+% file before running diff (necessary  on   Windows  to  avoid a sharing
+% violation). Therefore reclaim_tmp_file/2 first uses   close/2 to close
+% if not already done and then deletes the file.
+
 udiff_string(Data1, Data2, UDIFF) :-
 	setup_call_cleanup(
-	    save_string(Data1, File1),
-	    setup_call_cleanup(
-		save_string(Data2, File2),
-		process_diff(File1, File2, UDIFF),
-		delete_file(File2)),
-	    delete_file(File1)).
+	    tmp_file_stream(utf8, File1, Tmp1),
+	    ( save_string(Data1, Tmp1),
+	      setup_call_cleanup(
+		  tmp_file_stream(utf8, File2, Tmp2),
+		  ( save_string(Data2, Tmp2),
+		    process_diff(File1, File2, UDIFF)
+		  ),
+		  reclaim_tmp_file(File2, Tmp2))
+	    ),
+	    reclaim_tmp_file(File1, Tmp1)).
 
-save_string(String, File) :-
-	tmp_file_stream(utf8, File, TmpOut),
-	format(TmpOut, '~s', [String]),
-	close(TmpOut).
+save_string(String, Stream) :-
+	call_cleanup(
+	    format(Stream, '~s', [String]),
+	    close(Stream)).
+
+reclaim_tmp_file(File, Stream) :-
+	close(Stream, [force(true)]),
+	delete_file(File).
 
 process_diff(File1, File2, String) :-
 	setup_call_cleanup(
