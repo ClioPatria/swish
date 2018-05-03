@@ -2,7 +2,7 @@
 
 FONTDIR=web/bower_components/bootstrap/dist/fonts
 PACKDIR=lib/swish/pack
-PACKS=profile smtp
+PACKS=profile smtp wordnet pcache
 DIRS=lib/swish lib/swish/render lib/swish/plugin $(PACKDIR) \
      web/icons web/help client $(FONTDIR) \
      web/bower_components/codemirror/mode/htmlmixed \
@@ -27,7 +27,9 @@ PLUGIN=email.pl profile.pl notify.pl login.pl
 GITTY=config-available/gitty/Hangout.swinb
 PACKFILES0=profile/pack.pl profile/prolog/user_profile.pl \
 	   profile/prolog/profile/backend/profile_prolog.pl \
-	   smtp/pack.pl smtp/prolog/smtp.pl
+	   smtp/pack.pl smtp/prolog/smtp.pl \
+	   wordnet/pack.pl wordnet/prolog/wn.pl wordnet/prolog/wn_portray.pl \
+	   pcache/pack.pl pcache/prolog/signature.pl
 PACKFILES=$(addprefix $(PACKDIR)/, $(PACKFILES0))
 LIBS=	$(addprefix lib/swish/, $(SWISHLIB)) \
 	$(addprefix lib/swish/render/, $(RENDER)) \
