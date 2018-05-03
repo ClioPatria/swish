@@ -18,8 +18,11 @@ SWISHLIB=storage.pl page.pl help.pl examples.pl config.pl gitty.pl \
 	 swish_debug.pl profiles.pl procps.pl download.pl r_swish.pl \
 	 patch.pl chat.pl authenticate.pl pep.pl avatar.pl bootstrap.pl \
 	 noble_avatar.pl chatstore.pl paths.pl messages.pl dashboard.pl \
-	 projection.pl jquery.pl rgb.txt
-RENDER=table.pl graphviz.pl c3.pl codes.pl swish.pl chess.pl sudoku.pl svgtree.pl
+	 projection.pl jquery.pl rgb.txt \
+	 bad-words-google.txt bad-words.txt content_filter.pl \
+	 cron.pl provenance.pl
+RENDER=table.pl graphviz.pl c3.pl codes.pl swish.pl chess.pl sudoku.pl \
+       svgtree.pl wordnet.pl
 PLUGIN=email.pl profile.pl notify.pl login.pl
 GITTY=config-available/gitty/Hangout.swinb
 PACKFILES0=profile/pack.pl profile/prolog/user_profile.pl \
