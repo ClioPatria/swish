@@ -148,6 +148,35 @@ wn_op(sk(synset_id, w_num, sense_key)).
 wn_op(syntax(synset_id, w_num, syntax)).
 wn_op(vgp(synset_id, w_num, synset_id, w_num)).
 
+:- if(current_prolog_flag(xref, true)).
+
+% this  declaration  ensures  that  the  (ClioPatria)  cross  referencer
+% considers this predicates defined. We should not really define them as
+% handling these predicates is based on autoloading.
+
+:- dynamic
+    ant/4,
+    at/2,
+    cls/5,
+    cs/2,
+    der/4,
+    ent/2,
+    fr/3,
+    g/2,
+    hyp/2,
+    ins/2,
+    mm/2,
+    ms/2,
+    per/4,
+    ppl/4,
+    s/6,
+    sa/4,
+    sim/2,
+    sk/3,
+    syntax/3,
+    vgp/4.
+
+:- endif.
 
 		 /*******************************
 		 *    WORDNET BASIC RELATIONS   *
