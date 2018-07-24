@@ -3,7 +3,8 @@
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (c)  2014-2016, VU University Amsterdam
+    Copyright (c)  2014-2018, VU University Amsterdam
+			      CWI, Amsterdam
     All rights reserved.
 
     Redistribution and use in source and binary forms, with or without
@@ -38,12 +39,15 @@
 	    swish_config_hash/2		% -HASH, +Options
 	  ]).
 :- use_module(library(http/http_dispatch)).
+:- use_module(library(http/http_path)).
 :- use_module(library(http/http_json)).
 :- use_module(library(option)).
+:- use_module(library(apply)).
 
 :- multifile
 	config/2,			% ?Key, ?Value
 	config/3,			% ?Key, ?Value, +Options
+	web_plugin/1,			% ?Dict
 	source_alias/2,			% ?Alias, ?Options
 	authenticate/2,			% +Request, -User
         login_item/2,                   % -Server, -HTML_DOM
@@ -78,10 +82,12 @@ swish_config_hash(Hash, Options) :-
 
 json_config(json{ http: json{ locations:JSON
 			    },
-		  swish: SWISHConfig
+		  swish: SWISHConfig,
+		  plugins : Plugins
 		}, Options) :-
 	http_locations(JSON),
-	swish_config_dict(SWISHConfig, Options).
+	swish_config_dict(SWISHConfig, Options),
+	web_plugins(Plugins, Options).
 
 http_locations(JSON) :-
 	findall(ID-Path,
@@ -116,7 +122,53 @@ same_ids(T, _, T, []).
 
 swish_config_dict(Config, Options) :-
 	findall(Key-Value, swish_config(Key, Value, Options), Pairs),
-	dict_pairs(Config, json, Pairs).
+	keysort(Pairs, Sorted),
+	warn_duplicate_config(Sorted, Unique),
+	dict_pairs(Config, json, Unique).
+
+:- dynamic  warned_duplicate/1.
+:- volatile warned_duplicate/1.
+
+warn_duplicate_config([], []).
+warn_duplicate_config([K-V1,K-V2|T0], [K-V1|T]) :- !,
+	collect_same(K, T0, VL, T1),
+	(   warned_duplicate(K)
+	->  true
+	;   print_message(warning, swish(duplicate_config(K, [V1,V2|VL]))),
+	    assertz(warned_duplicate(K))
+	),
+	warn_duplicate_config(T1, T).
+warn_duplicate_config([KV|T0], [KV|T]) :- !,
+	warn_duplicate_config(T0, T).
+
+collect_same(K, [K-V|T0], [V|VT], T) :- !,
+	collect_same(K, T0, VT, T).
+collect_same(_, List, [], List).
+
+%!	web_plugins(-Plugins, +Options) is det.
+%
+%	Obtain a list of JSON dicts for additional web plugins.
+
+web_plugins(Plugins, _Options) :-
+	findall(Plugin, web_plugin_ex(Plugin), Plugins).
+
+web_plugin_ex(Plugin) :-
+	web_plugin(Plugin0),
+	dict_pairs(Plugin0, Tag, Pairs0),
+	maplist(expand_paths, Pairs0, Pairs),
+	dict_pairs(Plugin, Tag, Pairs).
+
+:- multifile http:location/3.
+:- dynamic   http:location/3.
+
+expand_paths(Name-Spec, Name-Path) :-
+	compound(Spec),
+	compound_name_arity(Spec, Alias, 1),
+	http:location(Alias, _, _),
+	!,
+	http_absolute_location(Spec, Path, []).
+expand_paths(Pair, Pair).
+
 
 %%	config(-Key, -Value) is nondet.
 %%	swish_config(-Key, -Value) is nondet.
@@ -236,6 +288,10 @@ config(residuals_var, '_residuals').
 prolog:message(http(duplicate_handlers(Id, Paths))) -->
 	[ 'Duplicate HTTP handler IDs: "~w"'-[Id] ],
 	paths(Paths).
+prolog:message(swish(duplicate_config(K, [V0|List]))) -->
+	[ 'Duplicate SWISH config values for "~w": ~p.  Using ~q'-
+	  [K, [V0|List], V0]
+	].
 
 paths([]) --> [].
 paths([H|T]) --> [ '\t~q'-[H], nl ], paths(T).

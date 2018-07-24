@@ -152,7 +152,7 @@ extend_options([_|T0], Options, T) :-
 %	See whether the client associated with  a session is flooding us
 %	and if so, return a resource error.
 
-check_flooding(_0Session) :-
+check_flooding(Session) :-
 	get_time(Now),
 	(   http_session_retract(websocket(Score, Last))
 	->  Passed is Now-Last,
@@ -161,11 +161,13 @@ check_flooding(_0Session) :-
 	    Passed = 0
 	),
 	debug(chat(flooding), 'Flooding score: ~2f (session ~p)',
-	      [NewScore, _0Session]),
+	      [NewScore, Session]),
 	http_session_assert(websocket(NewScore, Now)),
 	(   NewScore > 50
 	->  throw(http_reply(resource_error(
-				 websocket(reconnect(Passed, NewScore)))))
+				 error(permission_error(reconnect, websocket,
+							Session),
+				       websocket(reconnect(Passed, NewScore))))))
 	;   true
 	).
 
@@ -387,9 +389,18 @@ do_gc_visitors :-
 
 reclaim_visitor(WSID) :-
 	debug(chat(gc), 'Reclaiming idle ~p', [WSID]),
-	retractall(visitor_session(WSID, _Session, _Token)),
+	reclaim_visitor_session(WSID),
 	retractall(visitor_status(WSID, _Status)),
 	unsubscribe(WSID, _).
+
+reclaim_visitor_session(WSID) :-
+	forall(retract(visitor_session(WSID, Session, _Token)),
+		       http_session_retractall(websocket(_, _), Session)).
+
+:- if(\+current_predicate(http_session_retractall/2)).
+http_session_retractall(Data, Session) :-
+	retractall(http_session:session_data(Session, Data)).
+:- endif.
 
 
 %%	create_session_user(+Session, -User, -UserData, +Options)
@@ -747,6 +758,11 @@ avatar_property(_Avatar, Source, avatar_source, Source).
 %	HTTP handler for Noble  Avatar   images.  Using  create_avatar/2
 %	re-creates avatars from the file name,  so we can safely discard
 %	the avatar file store.
+%
+%	Not really. A new user gets a new   avatar  and this is based on
+%	whether or not the file exists. Probably we should maintain a db
+%	of handed out avatars and their last-use   time stamp. How to do
+%	that? Current swish stats: 400K avatars, 3.2Gb data.
 
 reply_avatar(Request) :-
 	option(path_info(Local), Request),
@@ -1316,8 +1332,8 @@ broadcast_bell(_Options) -->
 		 *******************************/
 
 :- multifile
-	prolog:message//1.
+	prolog:message_context//1.
 
-prolog:message(websocket(reconnect(Passed, Score))) -->
+prolog:message_context(websocket(reconnect(Passed, Score))) -->
 	[ 'WebSocket: too frequent reconnect requests (~1f sec; score = ~1f)'-
 	  [Passed, Score] ].
