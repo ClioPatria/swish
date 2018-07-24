@@ -16,6 +16,10 @@ user:file_search_path(swish_web, web(.)).
 user:file_search_path(example,   cpacks(swish/examples)).
 user:file_search_path(example,	 examples).
 
+% Allows users to extend the Examples menu by ticking the Example
+% checkbox.
+swish_config:config(community_examples, true).
+
 % Load swish.  You need this.
 :- use_module(applications(swish)).
 % Load the authentication hook. When loaded, ClioPatria users with admin
@@ -38,10 +42,6 @@ user:file_search_path(example,	 examples).
 :- use_module(user:library(swish/r_swish)).
 :- use_module(library(r/r_sandbox)).
 :- endif.
-
-% Allows users to extend the Examples menu by ticking the Example
-% checkbox.
-swish_config:config(community_examples, true).
 
 % Uncomment this to make Captitalised words _atoms_.  Variables must
 % be written as _var.  Requires SWI-Prolog 7.3.27.

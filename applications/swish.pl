@@ -83,45 +83,75 @@ user:file_search_path(swish_pack, library(swish/pack)).
 %%	swish_config:config(?Config, ?Value) is nondet.
 %
 %	All solutions of this predicate are  available in the JavaScript
-%	object config.swish.Config. Config must be an  atom that is also
+%	object config.swish.config. Config must be an  atom that is also
 %	a valid JavaScript identifier. Value  must   be  a value that is
-%	valid for json_write_dict/2. Most configurations  are also saved
-%	in the application preferences. These   are  marked [P]. Defined
-%	config parameters:
+%	valid for json_write_dict/2.  Defined config parameters:
 %
 %	  - show_beware
-%	  [P] If `true`, show the *Beware* modal dialog on startup
+%	  If `true`, show the *Beware* modal dialog on startup
 %	  - tabled_results
-%	  [P] If `true`, check the _table results_ checkbox by default.
+%	  If `true`, check the _table results_ checkbox by default.
 %	  - application
 %	  Name of the Pengine application.
 %	  - csv_formats
-%	  [P] CSV output formats offered. For example, ClioPatria
+%	  CSV output formats offered. For example, ClioPatria
 %	  defines this as [rdf,prolog]. The first element is default.
-%        - public_access
-%        If lib/authenticate.pl is loaded and this flag is `true`,
-%        _all_ access to SWISH demands authentication.  If false,
-%        only running queries and saving files is restricted. Note
-%        that this flag has no effect if no authentication module is
-%        loaded.
-%        - ping
-%        Ping pengine status every N seconds.  Updates sparkline
-%        chart with stack usage.
-%        - notebook
-%	 Dict holding options for notebooks.
-%        - nb_eval_script
-%        Evaluate scripts in HTML cells of notebooks?
-%	 - chat
-%	 Activate the chat interface
+%	  - community_examples
+%	  Allow marking saved programs as example.  If marked, the
+%	  programs are added to the Examples menu.
+%	  - public_access
+%	  If lib/authenticate.pl is loaded and this flag is `true`,
+%	  _all_ access to SWISH demands authentication.  If false,
+%	  only running queries and saving files is restricted. Note
+%	  that this flag has no effect if no authentication module is
+%	  loaded.
+%	  - include_alias
+%	  Alias for searching files for `:- include(Alias(Name)).`
+%	  - ping
+%	  Ping pengine status every N seconds.  Updates sparkline
+%	  chart with stack usage.
+%	  - notebook
+%	  Dict holding options for notebooks:
+%	    - eval_script
+%	    Whether or not to evaluate JavaScript in cells
+%	    - fullscreen
+%	    Whether or not to start in fullscreen mode by default
+%	  - fullscreen
+%	  Dict holding options for fullscreen mode:
+%	    - hide_navbar: hide the navigation bar when in fullscreen
+%	      mode.
+%	  - chat
+%	  Activate the chat interface
+%	  - default_query
+%	  Initial query for the source search in an empty tab
+%
+%	These config options are commonly  overruled   using  one of the
+%	configuration files. See `config-available` and `config-enabled`
+%	directories.
+%
+%	The  defaults  below   are   for    small   installations.   See
+%	`config-available/dim_large.pl` for a default   config for large
+%	communities.
 
-swish_config:config(show_beware,    false).
-swish_config:config(tabled_results, true).
-swish_config:config(application,    swish).
-swish_config:config(csv_formats,    [rdf, prolog]).
-swish_config:config(public_access,  true).
-swish_config:config(ping,           10).
-swish_config:config(notebook,       _{eval_script: true}).
-swish_config:config(chat,	    true).
+% Allow other code to overrule the defaults from this file.
+term_expansion(swish_config:config(Config, _Value), []) :-
+	clause(swish_config:config(Config, _), _).
+
+swish_config:config(show_beware,        false).
+swish_config:config(tabled_results,     true).
+swish_config:config(application,        swish).
+swish_config:config(csv_formats,        [rdf, prolog]).
+swish_config:config(community_examples, true).
+swish_config:config(public_access,      true).
+swish_config:config(include_alias,	example).
+swish_config:config(ping,		5).
+swish_config:config(notebook,		_{ eval_script: true,
+					   fullscreen: false
+					 }).
+swish_config:config(fullscreen,		_{ hide_navbar: true
+					 }).
+swish_config:config(chat,		true).
+swish_config:config(default_query,	'').
 
 %%     swish_config:source_alias(Alias, Options) is nondet.
 %
