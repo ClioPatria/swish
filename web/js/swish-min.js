@@ -510,6 +510,131 @@ define('links',["jquery", "config", "modal"],
   return functions;
 });
 
+/*  Part of SWISH
+
+    Author:        Jan Wielemaker
+    E-mail:        J.Wielemaker@cs.vu.nl
+    WWW:           http://www.swi-prolog.org
+    Copyright (C): 2014-2018, VU University Amsterdam
+			      CWI Amsterdam
+    All rights reserved.
+
+    Redistribution and use in source and binary forms, with or without
+    modification, are permitted provided that the following conditions
+    are met:
+
+    1. Redistributions of source code must retain the above copyright
+       notice, this list of conditions and the following disclaimer.
+
+    2. Redistributions in binary form must reproduce the above copyright
+       notice, this list of conditions and the following disclaimer in
+       the documentation and/or other materials provided with the
+       distribution.
+
+    THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+    "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+    LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+    FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+    COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+    INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+    BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+    LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+    CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+    LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+    ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+    POSSIBILITY OF SUCH DAMAGE.
+*/
+
+/**
+ * @fileOverview
+ *
+ * Small utilities
+ *
+ * @version 0.2.0
+ * @author Jan Wielemaker, J.Wielemaker@vu.nl
+ */
+
+define('utils',["jquery"],
+       function($) {
+
+  var styles_loaded = [];
+
+  var utils = {
+    /**
+     * @param   {String} text is the text to be encoded
+     * @returns {String} HTML encoded version of text
+     */
+    htmlEncode: function(text) {
+      if ( !text ) return "";
+      return document.createElement('a')
+                     .appendChild(document.createTextNode(text))
+		     .parentNode
+		     .innerHTML;
+    },
+
+    /**
+     * @param {String} url is the style sheet to load
+     */
+    loadCSS(url) {
+      if ( styles_loaded.indexOf(url) == -1 ) {
+	var styles = document.createElement('link');
+	styles.rel = 'stylesheet';
+	styles.type = 'text/css';
+	styles.media = 'screen';
+	styles.href = url;
+	document.getElementsByTagName('head')[0].appendChild(styles);
+	styles_loaded.push(url);
+      }
+    },
+
+    /**
+     * @returns {String} (random) UUID
+     */
+    generateUUID: function() {
+      var d = new Date().getTime();
+      var uuid = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'
+	.replace(/[xy]/g, function(c) {
+	  var r = (d + Math.random()*16)%16 | 0;
+	  d = Math.floor(d/16);
+	  return (c=='x' ? r : (r&0x7|0x8)).toString(16);
+	});
+      return uuid;
+    },
+
+    flash: function(obj) {
+      obj.addClass("flash");
+      setTimeout(function() { obj.removeClass("flash"); }, 1500);
+    },
+
+    ago: function(time) {
+      var ago = ((new Date().getTime())/1000) - time;
+
+      if ( ago < 20  ) return "just now";
+      if ( ago < 60  ) return "less then a minute ago";
+      ago = Math.round(ago/60);
+      if ( ago < 120 ) return ago + " minutes ago";
+      ago = Math.round(ago/60);
+      if ( ago < 48 )  return ago + " hours ago";
+      ago = Math.round(ago/24);
+      if ( ago < 360 ) return ago + " days ago";
+      ago = Math.round(ago/365);
+      return ago + " years ago";
+    },
+
+    basename: function(path) {
+      return path ? path.split('/').pop() : null;
+    }
+  } // end of methods
+
+  if (typeof String.prototype.startsWith != 'function') {
+    String.prototype.startsWith = function(str) {
+      return this.lastIndexOf(str, 0) === 0;
+    };
+  }
+
+  return utils;
+});
+
 // Laconic simplifies the generation of DOM content.
 (function(context) {
 
@@ -708,6 +833,256 @@ define('links',["jquery", "config", "modal"],
 
 define("laconic", ["jquery"], function(){});
 
+/*  Part of SWISH
+
+    Author:        Jan Wielemaker
+    E-mail:        J.Wielemaker@cs.vu.nl
+    WWW:           http://www.swi-prolog.org
+    Copyright (C): 2018, VU University Amsterdam
+			 CWI Amsterdam
+    All rights reserved.
+
+    Redistribution and use in source and binary forms, with or without
+    modification, are permitted provided that the following conditions
+    are met:
+
+    1. Redistributions of source code must retain the above copyright
+       notice, this list of conditions and the following disclaimer.
+
+    2. Redistributions in binary form must reproduce the above copyright
+       notice, this list of conditions and the following disclaimer in
+       the documentation and/or other materials provided with the
+       distribution.
+
+    THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+    "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+    LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+    FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+    COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+    INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+    BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+    LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+    CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+    LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+    ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+    POSSIBILITY OF SUCH DAMAGE.
+*/
+
+/**
+ * @fileOverview
+ * Provide version and release info
+ *
+ * @version 0.2.0
+ * @author Jan Wielemaker, J.Wielemaker@vu.nl
+ * @requires jquery
+ */
+
+define('version',[ "jquery", "config", "utils", "laconic" ],
+       function($, config, utils) {
+
+(function($) {
+  var pluginName = 'version';
+
+  /** @lends $.fn.version */
+  var methods = {
+    _init: function(options) {
+      options = options||{};
+
+      return this.each(function() {
+	var elem = $(this);
+	var data = {};			/* private data */
+
+	if ( config.http.locations.versions ) {
+	  elem.append($.el.div({class:"version"},
+			       $.el.div({class:"v-swish"}),
+			       $.el.div({class:"v-changelog"},
+					$.el.table()),
+			       $.el.div({class:"v-prolog"})));
+
+	  elem[pluginName]('update');
+	  if ( options.commit )
+	    elem[pluginName]('changelog', options);
+	}
+
+	elem.data(pluginName, data);	/* store with element */
+      });
+    },
+
+    /**
+     * Update the SWISH and Prolog versions.
+     */
+    update: function() {
+      if ( config.http.locations.versions ) {
+	elem = this;
+
+	$.get(config.http.locations.versions,
+	      function(data) {
+		if ( !data.swish || !data.prolog ) {
+		  console.log(data);
+		  return;
+		}
+
+		var swishversion;
+
+		if ( elem.hasClass("v-compact") )
+		  swishversion = $.el.a({title: "View recent changes"},
+					data.swish.version);
+		else
+		  swishversion = $.el.span(data.swish.version);
+
+		elem.find(".v-swish")
+		    .append($.el.span($.el.a({class:"v-product",
+					      href:"https://swish.swi-prolog.org"},
+					     "SWISH"),
+				      " version ",
+				      swishversion));
+		elem.find(".v-prolog")
+		    .append($.el.span("Running on ",
+				      $.el.a({class:"v-product",
+					      href:"http://www.swi-prolog.org/"},
+					     data.prolog.brand),
+				      " version " +
+				      data.prolog.version));
+		if ( elem.hasClass("v-compact") ) {
+		  $(swishversion).on("click", function(ev) {
+		    if ( elem.hasClass("v-compact") ) {
+		      elem[pluginName]('versionDetails');
+		      ev.preventDefault();
+		      return false;
+		    }
+		  });
+		}
+	      });
+      }
+    },
+
+    versionDetails: function() {
+      var body = this.closest(".modal-body");
+
+      if ( body ) {
+	this.closest(".modal-content").find("h2").html("SWISH ChangeLog");
+
+	this.detach();
+	body.empty();
+	body.append(this);
+	this.removeClass("v-compact");
+	this[pluginName]('changelog');
+      }
+    },
+
+    /**
+     * Get a changelog
+     */
+    changelog: function(options) {
+      var that = this;
+      options = options||{};
+      var params = {};
+
+      params.show = options.show || "all";
+      if ( options.commit ) {
+	params.commit = options.commit;
+      } else {
+	params.last = options.last || 20;
+      }
+
+      this.find(".v-changelog > table").html("");
+      $.get(config.http.locations.changelog,
+	    params,
+	    function(data) {
+
+	      for(var i=0; i<data.changelog.length; i++) {
+		that[pluginName]('addChange', data.changelog[i], i);
+	      }
+	    });
+    },
+
+    addChange: function(ch, i) {
+      var desc = $.el.td({class:"v-description", colspan:3});
+      $(desc).html(ch.message);
+
+      var cls = (i%2 == 0 ? "even" : "odd");
+
+      this.find(".v-changelog > table")
+	  .append($.el.tr({class:"v-change-header "+cls},
+			  $.el.td({class:"v-author"}, ch.author),
+			  $.el.td({class:"v-commit"}, ch.commit.slice(0,7)),
+			  $.el.td({class:"v-date"}, ch.committer_date_relative)),
+		  $.el.tr({class:"v-change-body "+cls},
+			  desc));
+    },
+
+    /**
+     * Check whether the server was updated since the last time we
+     * viewed the changes.
+     */
+    checkForUpdates: function() {
+      if ( !config.http.locations.versions )
+	return;
+
+      var str = localStorage.getItem("last-version");
+
+      function saveCheckpoint(data) {
+	var last = { commit:data.commit, date: data.date };
+	localStorage.setItem("last-version", JSON.stringify(last));
+      }
+
+      if ( str && (last = JSON.parse(str)) && last.commit ) {
+	var title = "SWISH updates since " + utils.ago(last.date||0);
+
+	$.get(config.http.locations.changes,
+	      {commit:last.commit},
+	      function(data) {
+		if ( data.changes ) {
+		  $("#swish-updates")
+		    .css("display", "inline-block")
+		    .attr("title", "SWISH has received " +
+				   data.changes + " updates\n" +
+			           "Click for details")
+		    .on("click", function(ev) {
+		      $(ev.target).closest(".swish")
+			          .swish('showUpdates',
+					 { title:  title,
+					   commit: last.commit,
+					   show:   "tagged"
+					 });
+		      saveCheckpoint(data);
+		      $("#swish-updates").hide();
+		    });
+		}
+	      });
+      } else {
+	$.get(config.http.locations.changes,
+	      function(data) {
+		saveCheckpoint(data);
+	      });
+      }
+    }
+  }; // methods
+
+  /**
+   * <Class description>
+   *
+   * @class version
+   * @tutorial jquery-doc
+   * @memberOf $.fn
+   * @param {String|Object} [method] Either a method name or the jQuery
+   * plugin initialization object.
+   * @param [...] Zero or more arguments passed to the jQuery `method`
+   */
+
+  $.fn.version = function(method) {
+    if ( methods[method] ) {
+      return methods[method]
+	.apply(this, Array.prototype.slice.call(arguments, 1));
+    } else if ( typeof method === 'object' || !method ) {
+      return methods._init.apply(this, arguments);
+    } else {
+      $.error('Method ' + method + ' does not exist on jQuery.' + pluginName);
+    }
+  };
+}(jQuery));
+});
+
 /*!
  * Bootstrap v3.3.7 (http://getbootstrap.com)
  * Copyright 2011-2016 Twitter, Inc.
@@ -722,7 +1097,7 @@ define("bootstrap", ["jquery"], function(){});
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@cs.vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (C): 2014-2016, VU University Amsterdam
+    Copyright (C): 2014-2018, VU University Amsterdam
 			      CWI Amsterdam
     All rights reserved.
 
@@ -761,7 +1136,7 @@ define("bootstrap", ["jquery"], function(){});
  * @requires jquery
  */
 
-define('modal',[ "jquery", "config", "preferences", "links", "form",
+define('modal',[ "jquery", "config", "preferences", "links", "form", "version",
 	 "laconic", "bootstrap" ],
        function($, config, preferences, links, form) {
 
@@ -942,7 +1317,11 @@ define('modal',[ "jquery", "config", "preferences", "links", "form",
       $(title).html(options.title);
       $(modalel).modal({show: true})
 		.on("click", "a", links.followLink)
-	        .on("shown.bs.modal", initTagsManagers)
+	        .on("shown.bs.modal", function() {
+		   initTagsManagers();
+		   // FIXME: should find a more structured way?
+		   $(this).find(".swish-versions").version();
+		 })
 	        .on("hidden.bs.modal", function() {
 		  if ( options.onclose )
 		    options.onclose();
@@ -2562,131 +2941,6 @@ define('form',[ "jquery", "config", "modal", "laconic", "tagmanager" ],
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@cs.vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (C): 2014-2018, VU University Amsterdam
-			      CWI Amsterdam
-    All rights reserved.
-
-    Redistribution and use in source and binary forms, with or without
-    modification, are permitted provided that the following conditions
-    are met:
-
-    1. Redistributions of source code must retain the above copyright
-       notice, this list of conditions and the following disclaimer.
-
-    2. Redistributions in binary form must reproduce the above copyright
-       notice, this list of conditions and the following disclaimer in
-       the documentation and/or other materials provided with the
-       distribution.
-
-    THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-    "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-    LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
-    FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
-    COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-    INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
-    BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-    LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-    CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
-    LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
-    ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-    POSSIBILITY OF SUCH DAMAGE.
-*/
-
-/**
- * @fileOverview
- *
- * Small utilities
- *
- * @version 0.2.0
- * @author Jan Wielemaker, J.Wielemaker@vu.nl
- */
-
-define('utils',["jquery"],
-       function($) {
-
-  var styles_loaded = [];
-
-  var utils = {
-    /**
-     * @param   {String} text is the text to be encoded
-     * @returns {String} HTML encoded version of text
-     */
-    htmlEncode: function(text) {
-      if ( !text ) return "";
-      return document.createElement('a')
-                     .appendChild(document.createTextNode(text))
-		     .parentNode
-		     .innerHTML;
-    },
-
-    /**
-     * @param {String} url is the style sheet to load
-     */
-    loadCSS(url) {
-      if ( styles_loaded.indexOf(url) == -1 ) {
-	var styles = document.createElement('link');
-	styles.rel = 'stylesheet';
-	styles.type = 'text/css';
-	styles.media = 'screen';
-	styles.href = url;
-	document.getElementsByTagName('head')[0].appendChild(styles);
-	styles_loaded.push(url);
-      }
-    },
-
-    /**
-     * @returns {String} (random) UUID
-     */
-    generateUUID: function() {
-      var d = new Date().getTime();
-      var uuid = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'
-	.replace(/[xy]/g, function(c) {
-	  var r = (d + Math.random()*16)%16 | 0;
-	  d = Math.floor(d/16);
-	  return (c=='x' ? r : (r&0x7|0x8)).toString(16);
-	});
-      return uuid;
-    },
-
-    flash: function(obj) {
-      obj.addClass("flash");
-      setTimeout(function() { obj.removeClass("flash"); }, 1500);
-    },
-
-    ago: function(time) {
-      var ago = ((new Date().getTime())/1000) - time;
-
-      if ( ago < 20  ) return "just now";
-      if ( ago < 60  ) return "less then a minute ago";
-      ago = Math.round(ago/60);
-      if ( ago < 120 ) return ago + " minutes ago";
-      ago = Math.round(ago/60);
-      if ( ago < 48 )  return ago + " hours ago";
-      ago = Math.round(ago/24);
-      if ( ago < 360 ) return ago + " days ago";
-      ago = Math.round(ago/365);
-      return ago + " years ago";
-    },
-
-    basename: function(path) {
-      return path ? path.split('/').pop() : null;
-    }
-  } // end of methods
-
-  if (typeof String.prototype.startsWith != 'function') {
-    String.prototype.startsWith = function(str) {
-      return this.lastIndexOf(str, 0) === 0;
-    };
-  }
-
-  return utils;
-});
-
-/*  Part of SWISH
-
-    Author:        Jan Wielemaker
-    E-mail:        J.Wielemaker@cs.vu.nl
-    WWW:           http://www.swi-prolog.org
     Copyright (C): 2015-2016, VU University Amsterdam
 			      CWI Amsterdam
     All rights reserved.
@@ -2839,10 +3093,126 @@ define('history',["jquery", "preferences", "form", "utils"],
 
 /*  Part of SWISH
 
+    Author:        Anne Ogborn
+    E-mail:        annie66us@yahoo.com
+    WWW:           http://www.swi-prolog.org
+    Copyright (C): 2018, Anne Ogborn
+    All rights reserved.
+
+    Redistribution and use in source and binary forms, with or without
+    modification, are permitted provided that the following conditions
+    are met:
+
+    1. Redistributions of source code must retain the above copyright
+       notice, this list of conditions and the following disclaimer.
+
+    2. Redistributions in binary form must reproduce the above copyright
+       notice, this list of conditions and the following disclaimer in
+       the documentation and/or other materials provided with the
+       distribution.
+
+    THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+    "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+    LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+    FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE
+    COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+    INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+    BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+    LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+    CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+    LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
+    ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+    POSSIBILITY OF SUCH DAMAGE.
+*/
+/**
+ * @fileOverview
+ * This file creates avatars from the SVG file icons/avatar.svg by
+ * changing visibility and fill colors.  This is used in `chat.js`.
+ *
+ * @version 0.2.0
+ * @author Anne Ogborn, annie66us@yahoo.com
+ * @requires jquery
+ */
+define('svgavatar',["jquery", "laconic"],
+    function() {
+
+        (function($) {
+            var pluginName = 'svgavatar';
+
+            /** @lends $.fn.svgavatar */
+            var methods = {
+                _init: function(options) {
+                    return this.each(function() {
+                        var elem = $(this);
+                        var data = {}; /* private data */
+
+
+                        elem.data(pluginName, data); /* store with element */
+                    });
+                },
+
+                /**
+                 * @param {int} an integer from a range at least 0-2^20
+                 */
+                setAVappearanceByUserID: function(ID) {
+		  return $(this).each(function() {
+		    var _this = $(this);
+
+		    var h = ID & 0x1FFFFF;
+		    _this.svgavatar('selectAppearance', 'hair', h & 0x07);
+		    _this.svgavatar('setFill', 'hair',
+				    ['#000000', '#CC4400', '#FFFF22', '#9f220B'][(h >> 3) & 0x03]);
+		    _this.svgavatar('selectAppearance', 'body', (h >> 5) & 0x03);
+		    _this.svgavatar('setFill', 'body',
+				    ['#95D155', '#19A6BA', '#F03C9B', '#0B061F'][(h >> 7) & 0x03]);
+		    _this.svgavatar('selectAppearance', 'eyes', (h >> 9) & 0x07);
+		    _this.svgavatar('selectAppearance', 'nose', (h >> 11) & 0x03);
+		    _this.svgavatar('selectAppearance', 'mouth', (h >> 13) & 0x07);
+		  });
+                },
+
+                selectAppearance: function(section, index) {
+		  $(this).find('#' + section + ' g').css('display', 'none');
+		  $(this).find('#' + section + ' g:nth-child(' + index + ')').css('display', 'inherit');
+                },
+
+                setFill: function(section, color) {
+		  return $(this).each(function() {
+		    $(this).find('#' + section + ' [fill]').attr('fill', color);
+		  });
+                }
+            }; // methods
+
+                /**
+                 * <Class description>
+                 *
+                 * @class svgavatar
+                 * @tutorial jquery-doc
+                 * @memberOf $.fn
+                 * @param {String|Object} [method] Either a method name or the jQuery
+                 * plugin initialization object.
+                 * @param [...] Zero or more arguments passed to the jQuery `method`
+                 */
+
+                $.fn.svgavatar = function(method) {
+                    if (methods[method]) {
+                        return methods[method]
+                            .apply(this, Array.prototype.slice.call(arguments, 1));
+                    } else if (typeof method === 'object' || !method) {
+                        return methods._init.apply(this, arguments);
+                    } else {
+                        $.error('Method ' + method + ' does not exist on jQuery.' + pluginName);
+                    }
+                };
+        }(jQuery));
+    });
+
+/*  Part of SWISH
+
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@cs.vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (C): 2016-2017, VU University Amsterdam
+    Copyright (C): 2016-2018, VU University Amsterdam
 			      CWI Amsterdam
     All rights reserved.
 
@@ -2881,7 +3251,9 @@ define('history',["jquery", "preferences", "form", "utils"],
  * @requires jquery
  */
 
-define('chat',[ "jquery", "config", "preferences", "form", "modal", "utils" ],
+define('chat',[ "jquery", "config", "preferences", "form", "modal", "utils",
+	 "svgavatar"
+       ],
        function($, config, preferences, form, modal, utils) {
 
 var MIN_RECONNECT_DELAY =  10000;
@@ -2945,7 +3317,11 @@ var MAX_RECONNECT_DELAY = 300000;
 	if ( value ) {
 	  if ( pname == "anon-avatar" ) {
 	    /* hack to deal with possibly rebased server */
-	    value = config.http.locations.avatar+value.split("/").pop();
+	    if ( value.indexOf("#") == -1 ) {
+	      value = config.http.locations.avatar+value.split("/").pop();
+	    } else {
+	      value = config.http.locations.swish+"icons/"+value.split("/").pop();
+	    }
 	  }
 
 	  url += lead + name + "=" + encodeURIComponent(value);
@@ -3570,15 +3946,6 @@ var MAX_RECONNECT_DELAY = 300000;
     return li;
   }
 
-  function avatar(options) {
-    if ( options.avatar ) {
-      return $.el.img({ class:"avatar", src:options.avatar
-		      });
-    } else {
-      return $.el.span({class:"avatar glyphicon glyphicon-user"})
-    }
-  }
-
   /**
    * @return {Number} time since 1/1/1970 in milliseconds
    */
@@ -3609,6 +3976,50 @@ var MAX_RECONNECT_DELAY = 300000;
     }
   };
 }(jQuery));
+
+  var svg_images = {};
+
+  function avatar(options) {
+    var img;
+
+    if ( options.avatar ) {
+      var m = /(.*\.svg)#(\d+)$/.exec(options.avatar);
+
+      if ( m && m[2] ) {
+	var id  = parseInt(m[2], 10);
+	var url = m[1];
+
+	img = $.el.span({class:"avatar svg"});
+	if ( svg_images[url] ) {
+	  $(img).svg_images[url];
+	  $(img).svgavatar('setAVappearanceByUserID', id);
+	} else {
+	  $.ajax({ url: options.avatar,
+		   type: "GET",
+		   dataType: "text",
+		   success: function(reply) {
+		     $(img).html(reply);
+		     svg_images[url] = reply;
+		     $(img).svgavatar('setAVappearanceByUserID', id);
+		   },
+		   error: function(jqXHR) {
+		     modal.ajaxError(jqXHR);
+		   }
+		 });
+	}
+      } else {
+	img = $.el.img({class:"avatar", src:options.avatar });
+      }
+    } else {
+      img = $.el.span({class:"avatar glyphicon glyphicon-user"})
+    }
+
+    return $.el.div({class:"avatar-container"}, img);
+  }
+
+  return {
+    avatar: avatar
+  };
 });
 
 /*!
@@ -16940,10 +17351,10 @@ return CodeMirror$1;
  */
 
 define('chatroom',[ "jquery", "form", "cm/lib/codemirror", "utils", "config",
-	 "modal", "links",
+	 "modal", "links", "chat",
 	 "laconic"
        ],
-       function($, form, CodeMirror, utils, config, modal, links) {
+       function($, form, CodeMirror, utils, config, modal, links, chat) {
 
 (function($) {
   var pluginName = 'chatroom';
@@ -17213,7 +17624,7 @@ define('chatroom',[ "jquery", "form", "cm/lib/codemirror", "utils", "config",
       elem = $($.el.div({class:"chat-message"+(msg.is_self ? " self" : ""),
 			 'data-userid':muser.wsid}));
       if ( !msg.is_self && muser.avatar ) {
-	elem.append($.el.img({ class:"avatar", src:muser.avatar }));
+	elem.append(chat.avatar(muser));
       }
       elem.append($.el.span({class:"chat-sender"},
 			    msg.is_self ? "Me" : muser.name));
@@ -20045,15 +20456,33 @@ define('answer',[ "jquery", "laconic" ],
       if ( !aSupportsDownload() )
 	type = "application/octet-stream";
 
-      var href	= "data:"+type+";charset=UTF-8,"
-		+ encodeURIComponent(data);
+      console.log(type);
 
-      var a = $.el.a({ href:href,
-		       download:"swish-rendered."+ext
-		     });
-      this.append(a);
-      a.click();
-      $(a).remove();
+      var blob = new Blob([data], {type:type});
+      var href = URL.createObjectURL(blob);
+      var filename = "swish-rendered."+ext;
+      var a, input, btn;
+
+      var span = $.el.div({class:"download"},
+			  btn = $.el.button({ type:"button", class:"close" }),
+			  a = $.el.a({ href:href,
+			               target:"_blank",
+				       download:filename
+				     },
+				     "Right click me to download as "),
+			  $.el.br(),
+			  input = $.el.input({value:filename}));
+      this.append(span);
+      $(btn)
+	.html("&times;")
+	.on("click", function(ev) {
+	  $(span).remove();
+	});
+      $(input).on("change keyup paste", function(ev) {
+	$(a).attr("download", $(input).val());
+	ev.preventDefault();
+	return false;
+      });
 
       return this;
     },
@@ -23253,8 +23682,8 @@ define('answer',[ "jquery", "laconic" ],
  * @requires jquery
  */
 
-define('download',[ "jquery", "laconic" ],
-       function() {
+define('download',[ "jquery", "config", "laconic" ],
+       function($, config) {
 
 (function($) {
   var pluginName = 'downloader';
@@ -23272,14 +23701,10 @@ define('download',[ "jquery", "laconic" ],
     _init: function(options) {
       return this.each(function() {
 	var elem = $(this);
-	var data = $.extend({
-	  name:"swish-download",
-	  ext:"dat"
-	}, options);
 
-	var type = data.content_type;
-	var name = data.filename || "swish-download.dat";
-	var chs  = data.charset  || "charset=UTF-8";
+	var uuid = options.uuid;
+	var type = options.content_type || "application/octet-stream";
+	var name = options.filename || "swish-download.dat";
 
 	function aSupportsDownload() {
 	  return $("<a>")[0].download != undefined;
@@ -23288,8 +23713,10 @@ define('download',[ "jquery", "laconic" ],
 	if ( !aSupportsDownload() || !type )
 	  type = "application/octet-stream";
 
-	var href      = "data:"+type+";"+chs+",";
-        href += (chs == "base64" ? data.data : encodeURIComponent(data.data));
+	var href      = config.http.locations.download + "/" +
+			encodeURIComponent(name) +
+ 	                "?content_type=" + encodeURIComponent(type) +
+			"&uuid=" + uuid;
 
 	elem.attr("download", name);
 	elem.attr("href", href);
@@ -23696,7 +24123,9 @@ define('runner',[ "jquery", "config", "preferences",
 	elem.prologRunner('populateActionMenu');
 	elem.keydown(function(ev) {
 	  if ( elem.prologRunner('getState') != "wait-input" &&
+	       !$(ev.target).is("input") &&
 	       !ev.ctrlKey && !ev.altKey ) {
+
 	    if ( keyBindings[ev.which] ) {
 	      ev.preventDefault();
 	      elem.prologRunner(keyBindings[ev.which]);
@@ -24854,7 +25283,7 @@ define('runner',[ "jquery", "config", "preferences",
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@cs.vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (C): 2014-2016, VU University Amsterdam
+    Copyright (C): 2014-2018, VU University Amsterdam
 			      CWI Amsterdam
     All rights reserved.
 
@@ -25032,7 +25461,7 @@ define('gitty',[ "jquery", "config", "form", "modal", "laconic" ],
     /**
      * Fill the commit log tab
      */
-    showHistory: function() {
+    showHistory: function(options) {
       return this.each(function() {
 	var elem = $(this);
 	var data = elem.data(pluginName);
@@ -25043,8 +25472,13 @@ define('gitty',[ "jquery", "config", "form", "modal", "laconic" ],
 	if ( data.history )
 	  return;
 
+	options = options||{};
+	if ( !options.depth )
+	  options.depth = 100;
+
 	tab.html("");
-	tab.append($.el.table(
+	tab.append($.el.div({class:"gitty-history-table"},
+			    $.el.table(
 	  { class:"table table-striped table-condensed gitty-history",
 	    'data-click-to-select':true,
 	    'data-single-select':true
@@ -25053,7 +25487,7 @@ define('gitty',[ "jquery", "config", "form", "modal", "laconic" ],
 		  $.el.th("Date"),
 		  $.el.th("User"),
 		  $.el.th("Changed")),
-	  $.el.tbody()));
+	  $.el.tbody())));
 
 	playButton = form.widgets.glyphIconButton(
            "play",
@@ -25084,7 +25518,7 @@ define('gitty',[ "jquery", "config", "form", "modal", "laconic" ],
 		 contentType: "application/json",
 		 type: "GET",
 		 data: { format: "history",
-		         depth: 6,		/* might skip last */
+		         depth: options.depth,	/* might skip last */
 		         to: data.commit
 		       },
 		 success: function(reply) {
@@ -25101,10 +25535,11 @@ define('gitty',[ "jquery", "config", "form", "modal", "laconic" ],
     /**
      * Fill the history table
      */
-    fillHistoryTable: function(history) {
+    fillHistoryTable: function(historyobj) {
       var gitty = this;
       var data  = this.data(pluginName);
       var table = this.find(".table.gitty-history tbody");
+      var history = historyobj.history ? historyobj.history : historyobj;
 
       for(var i=0; i<history.length; i++) {
 	var h = history[i];
@@ -25137,6 +25572,13 @@ define('gitty',[ "jquery", "config", "form", "modal", "laconic" ],
 	return elem;
       }
 
+      if ( historyobj.skipped ) {
+	table.append($.el.tr(
+	  $.el.td({class:"skipped-commits",
+	           colspan:4},
+		  "(Skipped "+historyobj.skipped+" commits)")));
+      }
+
       for(var i=0; i<history.length; i++) {
 	var h = history[i];
 	var tr;
@@ -25150,8 +25592,11 @@ define('gitty',[ "jquery", "config", "form", "modal", "laconic" ],
 	  attrs.class = "success";
 
 	tr = $.el.tr(attrs,
-		     $.el.td({class:"commit-message"},
-			     h.commit_message||"No comment"),
+		     h.commit_message ?
+		       $.el.td({class:"commit-message"},
+			       h.commit_message) :
+		       $.el.td({class:"commit-message no-comment"},
+			       "No comment"),
 		     $.el.td({class:"date"},
 			     new Date(h.time*1000).toLocaleString()),
 		     $.el.td({class:"author"},
@@ -67356,6 +67801,7 @@ define('jswish',[ "jquery",
 	 "laconic",
 	 "login",
 	 "chatroom",
+	 "version",
 	 "d3",
 	 "c3",
 	 "svg-pan-zoom"
@@ -67548,6 +67994,7 @@ preferences.setInform("preserve-state", ".unloadable");
 
 	delete data.restoring;
 	elem[pluginName]('runDelayedRestore');
+	$().version('checkForUpdates');
       });
     },
 
@@ -68046,6 +68493,18 @@ preferences.setInform("preserve-state", ".unloadable");
 		TogetherJS(elem);
 	      });
       return this;
+    },
+
+    /**
+     * Show showUpdates
+     */
+    showUpdates: function(options) {
+      modal.show({
+        title: options.title || "Recent SWISH updates",
+	body: function() {
+	  this.version(options);
+	}
+      });
     }
   }; // methods
 
