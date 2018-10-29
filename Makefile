@@ -18,7 +18,7 @@ SWISHLIB=storage.pl page.pl help.pl examples.pl config.pl gitty.pl \
 	 swish_debug.pl profiles.pl procps.pl download.pl r_swish.pl \
 	 patch.pl chat.pl authenticate.pl pep.pl avatar.pl bootstrap.pl \
 	 noble_avatar.pl chatstore.pl paths.pl messages.pl dashboard.pl \
-	 projection.pl jquery.pl rgb.txt \
+	 projection.pl jquery.pl rgb.txt version.pl http_version.pl \
 	 bad-words-google.txt bad-words.txt content_filter.pl \
 	 cron.pl provenance.pl
 RENDER=table.pl graphviz.pl c3.pl codes.pl swish.pl chess.pl sudoku.pl \
