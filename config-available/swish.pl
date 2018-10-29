@@ -18,7 +18,8 @@ user:file_search_path(example,	 examples).
 
 % Allows users to extend the Examples menu by ticking the Example
 % checkbox.
-swish_config:config(community_examples, true).
+swish_config:config(community_examples,   true).
+swish_config:config(chat_spam_protection, false).
 
 % Load swish.  You need this.
 :- use_module(applications(swish)).
