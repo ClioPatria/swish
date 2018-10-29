@@ -3,7 +3,7 @@
     Author:        Jan Wielemaker
     E-mail:        J.Wielemaker@cs.vu.nl
     WWW:           http://www.swi-prolog.org
-    Copyright (C): 2016-2017, VU University Amsterdam
+    Copyright (C): 2016-2018, VU University Amsterdam
 			      CWI Amsterdam
     All rights reserved.
 
@@ -94,6 +94,7 @@ browsers which in turn may have multiple SWISH windows opened.
 :- multifile swish_config:config/2.
 
 swish_config:config(hangout, 'Hangout.swinb').
+swish_config:config(avatars, svg).		% or 'noble'
 
 
 		 /*******************************
@@ -284,7 +285,6 @@ wsid_visitor(WSID, Visitor) :-
 wsid_visitor(WSID, Visitor) :-
 	session_user(Session, Visitor),
 	visitor_session(WSID, Session).
-
 
 %!	existing_visitor(+WSID, +Session, +Token, -TmpUser, -UserData) is semidet.
 %
@@ -779,9 +779,16 @@ reply_avatar(Request) :-
 noble_avatar_url(HREF, Options) :-
 	option(avatar(HREF), Options), !.
 noble_avatar_url(HREF, _Options) :-
+	swish_config:config(avatars, noble),
+	!,
 	noble_avatar(_Gender, Path, true),
 	file_base_name(Path, File),
 	http_absolute_location(swish(avatar/File), HREF, []).
+noble_avatar_url(HREF, _Options) :-
+	A is random(0x1FFFFF+1),
+	http_absolute_location(icons('avatar.svg'), HREF0, []),
+	format(atom(HREF), '~w#~d', [HREF0, A]).
+
 
 
 		 /*******************************
@@ -977,8 +984,11 @@ dict_file_name(Dict, File) :-
 %
 %	  - Demands the user to be logged on
 %	  - Limits the size of the message and its payloads
+%
+%	@tbd Call authorized/2 with all proper identity information.
 
 forbidden(Message, DocID, Why) :-
+	\+ swish_config:config(chat_spam_protection, false),
 	\+ ws_authorized(chat(post(Message, DocID)), Message.user), !,
 	Why = "Due to frequent spamming we were forced to limit \c
 	       posting chat messages to users who are logged in.".
@@ -992,6 +1002,7 @@ forbidden(Message, _DocID, Why) :-
 	member(Payload, Payloads),
 	large_payload(Payload, Why), !.
 forbidden(Message, _DocID, Why) :-
+	\+ swish_config:config(chat_spam_protection, false),
 	eval_content(Message.get(text), _WC, Score),
 	user_score(Message, Score, Cummulative, _Count),
 	Score*2 + Cummulative < 0,
