@@ -40,7 +40,7 @@ CSS=web/css/swish-min.css web/css/swish-min.css.gz
 ICON_FILES=owl_25_years.png running.gif page-fold-20.png \
 	   COMMIT_logo.png Synerscope-logo.png VU-logo.png \
 	   vre4eic-logo.png cwi-logo.png \
-	   pl.png swinb.png noble
+	   pl.png swinb.png noble avatar.svg
 ICONS=$(addprefix web/icons/, $(ICON_FILES))
 HELP=$(addprefix web/help/, $(notdir $(wildcard src/web/help/*.html)))
 FONTFILES=glyphicons-halflings-regular.ttf \
