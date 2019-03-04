@@ -20,9 +20,9 @@ SWISHLIB=storage.pl page.pl help.pl examples.pl config.pl gitty.pl \
 	 noble_avatar.pl chatstore.pl paths.pl messages.pl dashboard.pl \
 	 projection.pl jquery.pl rgb.txt version.pl http_version.pl \
 	 bad-words-google.txt bad-words.txt content_filter.pl \
-	 cron.pl provenance.pl
+	 cron.pl provenance.pl html_output.pl md_eval.pl
 RENDER=table.pl graphviz.pl c3.pl codes.pl swish.pl chess.pl sudoku.pl \
-       svgtree.pl wordnet.pl
+       svgtree.pl wordnet.pl mathjax.pl
 PLUGIN=email.pl profile.pl notify.pl login.pl
 GITTY=config-available/gitty/Hangout.swinb
 PACKFILES0=profile/pack.pl profile/prolog/user_profile.pl \
@@ -54,7 +54,8 @@ EXAMPLESFILES=render_c3.swinb render_graphviz.swinb htmlcell.swinb \
 	      rendering.swinb jquery.swinb stats.swinb \
 	      swish_tutorials.swinb \
 	      Rserve.swinb Rdataframe.swinb Rdownload.swinb \
-	      iris.swinb
+	      iris.swinb Rbasics.swinb html_output.swinb md_eval.swinb \
+	      render_mathjax.swinb
 EXAMPLES=$(addprefix examples/, $(EXAMPLESFILES))
 CMFILES=mode/htmlmixed/htmlmixed.js \
 	mode/javascript/javascript.js \
