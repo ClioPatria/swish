@@ -196,11 +196,6 @@ exists_or_create(Path, Out) :-
         make_directory_path(Dir),
         open(Path, write, Out, [encoding(utf8), lock(write)]).
 
-ensure_directory(Dir) :-
-	exists_directory(Dir), !.
-ensure_directory(Dir) :-
-	make_directory(Dir).
-
 %%	load_object(+Store, +Hash, -Data, -Type, -Size) is det.
 %
 %	Load the given object.
